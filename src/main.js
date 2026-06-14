@@ -170,9 +170,10 @@ const room = (function () {
         }
     }
 
-    // Handle room switching (called when player joins/leaves a game map)
-    async function _switchRoom(newRoomName) {
-        if (newRoomName === _currentRoom) return;
+    // Public: switch to a named room channel and wait until subscribed.
+    // Call this BEFORE updatePresence so track() lands on the correct channel.
+    async function switchRoom(newRoomName) {
+        if (!newRoomName || newRoomName === _currentRoom) return;
         try {
             const { getSupabase } = await import('./supabase.js');
             const sb = await getSupabase();
@@ -182,13 +183,14 @@ const room = (function () {
         }
     }
 
-    // Intercept send({type:'join'}) to actually switch channel
-    const _send = send;
-    function sendWithRoomSwitch(obj) {
-        if (obj && obj.type === 'join' && obj.room && obj.room !== _currentRoom) {
-            _switchRoom(obj.room).catch(() => {});
+    function send(obj) {
+        if (_channel) {
+            _channel.send({
+                type: 'broadcast',
+                event: 'msg',
+                payload: { ...obj, _from: clientId }
+            }).catch(() => {});
         }
-        _send(obj);
     }
 
     return {
@@ -203,7 +205,8 @@ const room = (function () {
         subscribePresence,
         subscribeRoomState,
         subscribePresenceUpdateRequests,
-        send: sendWithRoomSwitch,
+        switchRoom,
+        send,
         onmessage: null
     };
 })();
@@ -3187,12 +3190,10 @@ function startGame(mapName, mapData = null) {
             }
         }, 100);
 
-        // Make server treat this client as joining the map-specific room so presence/chat only goes to players in this map.
+        // Switch to the game-specific Supabase Realtime channel FIRST,
+        // then broadcast presence so all players in this map see each other.
         try {
-            // Ask server to remove us from the default/global room (best-effort) then join the map room.
-            try { room.send({ type: 'leave', room: 'global', clientId: room.clientId }); } catch(e){}
-            try { room.send({ type: 'join', room: mapNameLocal, clientId: room.clientId }); } catch(e){}
-
+            await room.switchRoom(mapNameLocal);
             room.updatePresence({
                 username: document.getElementById('input-username').value || "Guest",
                 appearance: player.serializeAppearance(),
@@ -3202,7 +3203,7 @@ function startGame(mapName, mapData = null) {
                 animState: 'idle'
             });
         } catch (e) {
-            console.warn("Failed to send initial presence / join room:", e);
+            console.warn("Failed to join room / update presence:", e);
         }
 
         // If this is the puzzles game, present a simple puzzle UI (6 levels, increasing difficulty)
@@ -3633,46 +3634,25 @@ document.getElementById('btn-play').onclick = () => {
 
             rows.innerHTML = '';
             merged.forEach(g => {
-                const votesKey = `nblox_votes_${g.id}`;
-                let stored = null;
-                try { stored = JSON.parse(localStorage.getItem(votesKey) || 'null'); } catch(e){ stored = null; }
-                if (!stored) {
-                    stored = { up: g.up || 0, down: g.down || 0, user: null };
-                    try { localStorage.setItem(votesKey, JSON.stringify(stored)); } catch(e){}
-                }
-
-                const vKeyVisits = `nblox_visits_${g.id}`;
-                let visits = parseInt(sessionStorage.getItem(vKeyVisits) || '0', 10);
-                if (!visits) {
-                    visits = g.visits || (g.firestoreData && g.firestoreData.visits) || (1000 + Math.floor(Math.random() * 50000));
-                    sessionStorage.setItem(vKeyVisits, String(visits));
-                }
-
                 const isRemote = !!g.supabaseData;
 
                 const container = document.createElement('div');
                 container.style.display = 'flex';
                 container.style.alignItems = 'stretch';
                 container.style.gap = '0';
-                container.style.background = isRemote
-                    ? 'linear-gradient(135deg,#0d1b2a,#1a2a3a)'
-                    : 'linear-gradient(135deg,#0e1028,#141830)';
-                container.style.border = isRemote ? '1.5px solid rgba(0,212,255,0.28)' : '1.5px solid rgba(80,100,160,0.22)';
+                container.style.background = '#111316';
+                container.style.border = '1px solid rgba(255,255,255,0.07)';
                 container.style.borderRadius = '10px';
                 container.style.overflow = 'hidden';
-                container.style.boxShadow = isRemote
-                    ? '0 4px 20px rgba(0,212,255,0.12)'
-                    : '0 2px 10px rgba(0,0,0,0.4)';
-                container.style.transition = 'transform 0.15s, box-shadow 0.15s, border-color 0.15s';
+                container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+                container.style.transition = 'background 0.12s, border-color 0.12s';
                 container.addEventListener('mouseenter', () => {
-                    container.style.transform = 'translateY(-2px)';
-                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 24px rgba(0,100,200,0.22)';
-                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.5)' : 'rgba(0,180,255,0.35)';
+                    container.style.background = '#181b1f';
+                    container.style.borderColor = 'rgba(255,255,255,0.13)';
                 });
                 container.addEventListener('mouseleave', () => {
-                    container.style.transform = '';
-                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 10px rgba(0,0,0,0.4)';
-                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.28)' : 'rgba(80,100,160,0.22)';
+                    container.style.background = '#111316';
+                    container.style.borderColor = 'rgba(255,255,255,0.07)';
                 });
 
                 // Thumbnail
@@ -3686,18 +3666,6 @@ document.getElementById('btn-play').onclick = () => {
                 thumb.style.objectFit = 'cover';
                 thumb.style.display = 'block';
                 thumbWrap.appendChild(thumb);
-                // "ONLINE" badge for remote games
-                if (isRemote) {
-                    const badge = document.createElement('div');
-                    badge.textContent = 'FAUNDRY';
-                    badge.style.cssText = `
-                        position:absolute; top:6px; left:6px;
-                        background:linear-gradient(90deg,#00d4ff,#0066ff);
-                        color:#fff; font-size:9px; font-weight:bold;
-                        padding:2px 7px; border-radius:10px; letter-spacing:0.08em;
-                    `;
-                    thumbWrap.appendChild(badge);
-                }
                 container.appendChild(thumbWrap);
 
                 const meta = document.createElement('div');
@@ -3709,9 +3677,9 @@ document.getElementById('btn-play').onclick = () => {
 
                 // Title
                 const title = document.createElement('div');
-                title.style.fontWeight = 'bold';
-                title.style.fontSize = '16px';
-                title.style.color = isRemote ? '#e8f4fd' : '#d8e0f8';
+                title.style.fontWeight = '600';
+                title.style.fontSize = '15px';
+                title.style.color = '#e6edf3';
                 title.style.lineHeight = '1.2';
                 title.textContent = g.name;
                 meta.appendChild(title);
@@ -3737,10 +3705,7 @@ document.getElementById('btn-play').onclick = () => {
                 const playBtn = document.createElement('button');
                 playBtn.className = 'menu-btn';
                 playBtn.textContent = 'Play';
-                playBtn.style.cssText = `
-                    width:90px; padding:6px 0;
-                    font-weight:600; font-size:13px;
-                `;
+                playBtn.style.cssText = `width:80px; padding:6px 0; font-weight:600; font-size:13px;`;
                 // For Supabase-published entries, use world_data; otherwise fall back to local
                 playBtn.onclick = () => {
                     if (g.supabaseData && g.supabaseData.world_data) {
@@ -3756,58 +3721,42 @@ document.getElementById('btn-play').onclick = () => {
                     }
                 };
 
-                const voteWrap = document.createElement('div');
-                voteWrap.style.display = 'flex';
-                voteWrap.style.alignItems = 'center';
-                voteWrap.style.gap = '6px';
+                // Live player online count for this game
+                const onlineEl = document.createElement('div');
+                onlineEl.style.cssText = `
+                    font-size:12px; color:#8b949e; display:flex; align-items:center; gap:4px;
+                `;
+                const dot = document.createElement('span');
+                dot.style.cssText = `
+                    display:inline-block; width:7px; height:7px; border-radius:50%;
+                    background:#3fb950;
+                `;
+                const onlineText = document.createElement('span');
 
-                const upBtn = document.createElement('button');
-                upBtn.className = 'menu-btn';
-                upBtn.textContent = `▲ ${stored.up}`;
-                upBtn.style.cssText = `padding:5px 10px; font-size:12px;`;
-                const downBtn = document.createElement('button');
-                downBtn.className = 'menu-btn';
-                downBtn.textContent = `▼ ${stored.down}`;
-                downBtn.style.cssText = `padding:5px 10px; font-size:12px;`;
-
-                const refreshVotes = () => {
-                    upBtn.textContent = `▲ ${stored.up}`;
-                    downBtn.textContent = `▼ ${stored.down}`;
+                // Count presences in this map
+                const countOnlineForGame = () => {
+                    let n = 0;
+                    const pres = room.presence || {};
+                    for (const id in pres) {
+                        if (pres[id] && pres[id].map === g.name) n++;
+                    }
+                    return n;
                 };
 
-                upBtn.addEventListener('click', () => {
-                    playSwitch();
-                    if (stored.user === 'up') {
-                        stored.up = Math.max(0, stored.up - 1);
-                        stored.user = null;
-                    } else {
-                        if (stored.user === 'down') stored.down = Math.max(0, stored.down - 1);
-                        stored.up += 1;
-                        stored.user = 'up';
-                    }
-                    localStorage.setItem(votesKey, JSON.stringify(stored));
-                    refreshVotes();
-                });
+                const updateOnline = () => {
+                    const n = countOnlineForGame();
+                    onlineText.textContent = n > 0 ? `${n} online` : '';
+                    dot.style.display = n > 0 ? 'inline-block' : 'none';
+                };
+                updateOnline();
+                // Re-check online count whenever presence changes
+                room.subscribePresence(() => updateOnline());
 
-                downBtn.addEventListener('click', () => {
-                    playSwitch();
-                    if (stored.user === 'down') {
-                        stored.down = Math.max(0, stored.down - 1);
-                        stored.user = null;
-                    } else {
-                        if (stored.user === 'up') stored.up = Math.max(0, stored.up - 1);
-                        stored.down += 1;
-                        stored.user = 'down';
-                    }
-                    localStorage.setItem(votesKey, JSON.stringify(stored));
-                    refreshVotes();
-                });
-
-                voteWrap.appendChild(upBtn);
-                voteWrap.appendChild(downBtn);
+                onlineEl.appendChild(dot);
+                onlineEl.appendChild(onlineText);
 
                 descRow.appendChild(playBtn);
-                descRow.appendChild(voteWrap);
+                descRow.appendChild(onlineEl);
 
                 meta.appendChild(descRow);
                 container.appendChild(meta);
@@ -4826,8 +4775,7 @@ function doExitToMenu() {
     // Notify presence/server: rejoin global room and mark as in MENU
     try {
         // Tell server we're leaving the map room and rejoining the global room
-        try { room.send({ type: 'leave', room: currentMapName || 'unknown', clientId: room.clientId }); } catch(e){}
-        try { room.send({ type: 'join', room: 'global', clientId: room.clientId }); } catch(e){}
+        try { room.switchRoom('global').then(() => { room.updatePresence({ map: 'MENU' }); }).catch(() => {}); } catch(e){}
         room.updatePresence({ map: 'MENU' });
     } catch(e){ console.warn('Failed to update presence on exit', e); }
 
