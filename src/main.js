@@ -3607,39 +3607,22 @@ document.getElementById('btn-play').onclick = () => {
                 `;
                 creatorRow.title = `View ${g.author || 'Unknown'}'s profile`;
 
-                // Mini avatar icon (uses stored colors or default)
+                // Mini avatar icon (uses stored colors or default) — uses drawBlockyCharacter
                 const avatarCanvas = document.createElement('canvas');
-                avatarCanvas.width = 28;
-                avatarCanvas.height = 36;
+                avatarCanvas.width = 36;
+                avatarCanvas.height = 48;
                 avatarCanvas.style.cssText = `
-                    border-radius:3px; border:1.5px solid ${isRemote ? '#00d4ff66' : '#0055aa44'};
-                    background:#ddd; flex-shrink:0; cursor:pointer;
+                    border-radius:6px; border:1.5px solid rgba(255,255,255,0.12);
+                    background:#0d1117; flex-shrink:0; cursor:pointer; image-rendering:pixelated;
                 `;
-                // Draw mini avatar from stored colors (try localStorage first, fall back to defaults)
+                // Draw mini avatar from stored colors
                 (() => {
-                    const ctx = avatarCanvas.getContext('2d');
-                    let colors = { head:'#ffffff', torso:'#800080', larm:'#ffffff', rarm:'#ffffff', lleg:'#ffffff', rleg:'#ffffff' };
+                    let colors = { head:'#f5cba7', torso:'#3b5998', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#1a237e', rleg:'#1a237e' };
                     try {
                         const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${g.author}`) || 'null');
                         if (stored) colors = stored;
                     } catch(e){}
-                    const W = 28, H = 36;
-                    // head
-                    ctx.fillStyle = colors.head;
-                    ctx.fillRect(8,1,12,10);
-                    // torso
-                    ctx.fillStyle = colors.torso;
-                    ctx.fillRect(6,12,16,12);
-                    // arms
-                    ctx.fillStyle = colors.larm;
-                    ctx.fillRect(1,12,5,10);
-                    ctx.fillStyle = colors.rarm;
-                    ctx.fillRect(22,12,5,10);
-                    // legs
-                    ctx.fillStyle = colors.lleg;
-                    ctx.fillRect(6,25,6,10);
-                    ctx.fillStyle = colors.rleg;
-                    ctx.fillRect(16,25,6,10);
+                    drawBlockyCharacter(avatarCanvas, colors);
                 })();
 
                 creatorRow.appendChild(avatarCanvas);
@@ -6002,6 +5985,97 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
 }
 
 // ===== PROFILE MODAL =====
+// Draws a full-body blocky character on a canvas element, using body-part color map.
+function drawBlockyCharacter(canvas, colors) {
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    // Scale factor so we can work in a fixed 60x80 design space
+    const sx = W / 60, sy = H / 80;
+    function rect(x, y, w, h, color, shade) {
+        // Main face
+        ctx.fillStyle = color;
+        ctx.fillRect(x * sx, y * sy, w * sx, h * sy);
+        // Right-side shadow for 3D illusion
+        if (shade) {
+            ctx.fillStyle = shadeColor(color, -28);
+            ctx.fillRect((x + w - 3) * sx, y * sy, 3 * sx, h * sy);
+            // Bottom shadow
+            ctx.fillStyle = shadeColor(color, -18);
+            ctx.fillRect(x * sx, (y + h - 2) * sy, w * sx, 2 * sy);
+            // Top highlight
+            ctx.fillStyle = shadeColor(color, 22);
+            ctx.fillRect(x * sx, y * sy, w * sx, 2 * sy);
+        }
+        // Outline
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x * sx + 0.4, y * sy + 0.4, w * sx - 0.8, h * sy - 0.8);
+    }
+
+    function shadeColor(hex, amount) {
+        try {
+            let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+            r = Math.max(0,Math.min(255,r+amount));
+            g = Math.max(0,Math.min(255,g+amount));
+            b = Math.max(0,Math.min(255,b+amount));
+            return `rgb(${r},${g},${b})`;
+        } catch(e) { return hex; }
+    }
+
+    const c = {
+        head:  colors.head  || '#f5cba7',
+        torso: colors.torso || '#3b5998',
+        larm:  colors.larm  || '#f5cba7',
+        rarm:  colors.rarm  || '#f5cba7',
+        lleg:  colors.lleg  || '#1a237e',
+        rleg:  colors.rleg  || '#1a237e',
+    };
+
+    // Left arm (behind torso)
+    rect(2, 28, 11, 22, c.larm, true);
+    // Right arm (behind torso)
+    rect(47, 28, 11, 22, c.rarm, true);
+    // Left leg
+    rect(13, 52, 13, 25, c.lleg, true);
+    // Right leg
+    rect(34, 52, 13, 25, c.rleg, true);
+    // Torso
+    rect(13, 28, 34, 24, c.torso, true);
+    // Head
+    rect(15, 4, 30, 26, c.head, true);
+    // Neck connector
+    ctx.fillStyle = shadeColor(c.head, -10);
+    ctx.fillRect(24 * sx, 28 * sy, 12 * sx, 2 * sy);
+
+    // Eyes (white sclera + dark pupils)
+    // Left eye
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(19 * sx, 12 * sy, 8 * sx, 8 * sy);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(21 * sx, 14 * sy, 5 * sx, 5 * sy);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(24 * sx, 14 * sy, 2 * sx, 2 * sy); // highlight
+    // Right eye
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(33 * sx, 12 * sy, 8 * sx, 8 * sy);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(35 * sx, 14 * sy, 5 * sx, 5 * sy);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(38 * sx, 14 * sy, 2 * sx, 2 * sy); // highlight
+
+    // Smile
+    ctx.fillStyle = shadeColor(c.head, -50);
+    ctx.fillRect(21 * sx, 24 * sy, 18 * sx, 2 * sy);
+    ctx.fillRect(19 * sx, 22 * sy, 2 * sx, 2 * sy);
+    ctx.fillRect(39 * sx, 22 * sy, 2 * sx, 2 * sy);
+
+    // Torso button strip
+    ctx.fillStyle = shadeColor(c.torso, -40);
+    ctx.fillRect(28 * sx, 30 * sy, 4 * sx, 18 * sy);
+}
+
 function openProfileModal(username, totalVisits) {
     const modal = document.getElementById('profile-modal');
     if (!modal) return;
@@ -6027,26 +6101,12 @@ function openProfileModal(username, totalVisits) {
     // Draw avatar on canvas using stored colors
     const canvas = document.getElementById('profile-avatar-canvas');
     if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, 100, 130);
-        let colors = { head:'#f5cba7', torso:'#800080', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#333', rleg:'#333' };
+        let colors = { head:'#f5cba7', torso:'#3b5998', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#1a237e', rleg:'#1a237e' };
         try {
             const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${username}`) || 'null');
             if (stored) colors = { ...colors, ...stored };
         } catch(e){}
-        // Draw body parts
-        ctx.fillStyle = colors.head; ctx.fillRect(30, 4, 40, 36);
-        ctx.fillStyle = colors.torso; ctx.fillRect(22, 42, 56, 44);
-        ctx.fillStyle = colors.larm; ctx.fillRect(4, 42, 18, 36);
-        ctx.fillStyle = colors.rarm; ctx.fillRect(78, 42, 18, 36);
-        ctx.fillStyle = colors.lleg; ctx.fillRect(22, 88, 24, 38);
-        ctx.fillStyle = colors.rleg; ctx.fillRect(54, 88, 24, 38);
-        // Eyes
-        ctx.fillStyle = '#000';
-        ctx.fillRect(38, 16, 7, 7);
-        ctx.fillRect(55, 16, 7, 7);
-        // Mouth
-        ctx.fillRect(40, 30, 20, 3);
+        drawBlockyCharacter(canvas, colors);
     }
 
     modal.style.display = 'flex';
@@ -6055,19 +6115,7 @@ function openProfileModal(username, totalVisits) {
         try {
             const profile = await loadAvatar(username);
             if (profile && profile.colors && canvas) {
-                const ctx = canvas.getContext('2d');
-                const c = profile.colors;
-                ctx.clearRect(0, 0, 100, 130);
-                ctx.fillStyle = c.head || '#f5cba7'; ctx.fillRect(30, 4, 40, 36);
-                ctx.fillStyle = c.torso || '#800080'; ctx.fillRect(22, 42, 56, 44);
-                ctx.fillStyle = c.larm || '#f5cba7'; ctx.fillRect(4, 42, 18, 36);
-                ctx.fillStyle = c.rarm || '#f5cba7'; ctx.fillRect(78, 42, 18, 36);
-                ctx.fillStyle = c.lleg || '#333'; ctx.fillRect(22, 88, 24, 38);
-                ctx.fillStyle = c.rleg || '#333'; ctx.fillRect(54, 88, 24, 38);
-                ctx.fillStyle = '#000';
-                ctx.fillRect(38, 16, 7, 7);
-                ctx.fillRect(55, 16, 7, 7);
-                ctx.fillRect(40, 30, 20, 3);
+                drawBlockyCharacter(canvas, profile.colors);
             }
         } catch (e) {}
     })();
