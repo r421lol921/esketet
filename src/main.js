@@ -3014,7 +3014,7 @@ const openGameDetail = (title, mapName, mapData = null) => {
     try { updateGameDetailPlayerCount(); } catch(e){}
 };
 
-function startGame(mapName, mapData = null) {
+async function startGame(mapName, mapData = null) {
     playSwitch();
 
     // Create simple loading overlay like 2006 Roblox (reused/created)
