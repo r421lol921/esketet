@@ -27,41 +27,130 @@ import { publishGame, fetchGames, incrementVisit, uploadThumbnail, saveAvatar, l
 */
 
 /*
-  WebSocket-backed presence client to talk to the simple presence server (server.js).
-  Provides a minimal subset of the original room API used in the app:
-    - initialize(): opens WS and sends join
-    - updatePresence(obj): broadcasts presence_update to peers via server
-    - subscribePresence(cb): receives presence updates from peers
+  Supabase Realtime-backed multiplayer presence room.
+  Exposes the same minimal API the rest of the app already uses:
+    room.clientId          – stable random id for this session
+    room.presence          – map of { [clientId]: presenceObj }
+    room.initialize()      – subscribe to the default channel
+    room.updatePresence(p) – merge p into own presence and broadcast
+    room.subscribePresence(cb) – called on every presence change
+    room.send(obj)         – broadcast a message to peers (chat, etc.)
+    room.onmessage         – set to a function to receive messages
 */
 function generateClientId() {
-    // simple random id
     return 'c-' + Math.random().toString(36).slice(2, 10);
 }
 
 const room = (function () {
-    // Lightweight no-op presence stub to disable multiplayer features.
     const clientId = generateClientId();
-    const presence = {};
+    const presence = {};           // { [id]: presencePayload }
     const roomState = {};
     const peers = {};
+    const presenceSubscribers = [];
+    let _channel = null;           // active Supabase Realtime channel
+    let _currentRoom = 'global';
 
+    // --- helpers ---
+    function _notifyPresence() {
+        const snap = Object.assign({}, presence);
+        for (const cb of presenceSubscribers) {
+            try { cb(snap); } catch (e) {}
+        }
+    }
+
+    // --- public API ---
     async function initialize() {
-        // Resolve immediately; no network activity.
+        try {
+            const { getSupabase } = await import('./supabase.js');
+            const sb = await getSupabase();
+            await _joinChannel(sb, _currentRoom);
+        } catch (e) {
+            console.warn('[room] Supabase Realtime init failed (offline mode):', e);
+        }
         return Promise.resolve();
     }
 
+    async function _joinChannel(sb, roomName) {
+        // Leave old channel cleanly
+        if (_channel) {
+            try { await sb.removeChannel(_channel); } catch (e) {}
+            _channel = null;
+        }
+        _currentRoom = roomName;
+
+        const ch = sb.channel(`faundry:${roomName}`, {
+            config: { presence: { key: clientId } }
+        });
+
+        // Track own presence
+        ch.on('presence', { event: 'sync' }, () => {
+            const state = ch.presenceState();
+            // Clear non-self peers
+            for (const k in presence) {
+                if (k !== clientId) delete presence[k];
+            }
+            for (const key in state) {
+                const payloads = state[key];
+                if (payloads && payloads.length > 0) {
+                    presence[key] = payloads[0];
+                }
+            }
+            _notifyPresence();
+        });
+
+        ch.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+            if (newPresences && newPresences.length > 0) {
+                presence[key] = newPresences[0];
+                _notifyPresence();
+            }
+        });
+
+        ch.on('presence', { event: 'leave' }, ({ key }) => {
+            delete presence[key];
+            _notifyPresence();
+        });
+
+        // Broadcast messages (chat, friend requests, etc.)
+        ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
+            if (payload && payload._from !== clientId) {
+                try {
+                    if (typeof room.onmessage === 'function') {
+                        // Normalize to match legacy evt shape: { clientId, data }
+                        room.onmessage({ clientId: payload._from, from: payload._from, data: payload });
+                    }
+                } catch (e) {}
+            }
+        });
+
+        await ch.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // Track own presence with current local data
+                const own = presence[clientId] || {};
+                await ch.track({ ...own, _clientId: clientId });
+            }
+        });
+
+        _channel = ch;
+    }
+
     function updatePresence(p) {
-        // Keep local presence object for UI usage but do not send anywhere.
-        presence[clientId] = { ...(presence[clientId] || {}), ...p };
+        presence[clientId] = { ...(presence[clientId] || {}), ...p, _clientId: clientId };
+        if (_channel) {
+            _channel.track(presence[clientId]).catch(() => {});
+        }
+        _notifyPresence();
     }
 
     function updateRoomState(s) { Object.assign(roomState, s); }
-
-    function requestPresenceUpdate() { /* no-op */ }
+    function requestPresenceUpdate() {}
 
     function subscribePresence(cb) {
+        presenceSubscribers.push(cb);
         try { cb(Object.assign({}, presence)); } catch (e) {}
-        return () => {};
+        return () => {
+            const i = presenceSubscribers.indexOf(cb);
+            if (i >= 0) presenceSubscribers.splice(i, 1);
+        };
     }
 
     function subscribeRoomState(cb) {
@@ -71,7 +160,36 @@ const room = (function () {
 
     function subscribePresenceUpdateRequests() { return () => {}; }
 
-    function send() { /* no-op */ }
+    function send(obj) {
+        if (_channel) {
+            _channel.send({
+                type: 'broadcast',
+                event: 'msg',
+                payload: { ...obj, _from: clientId }
+            }).catch(() => {});
+        }
+    }
+
+    // Handle room switching (called when player joins/leaves a game map)
+    async function _switchRoom(newRoomName) {
+        if (newRoomName === _currentRoom) return;
+        try {
+            const { getSupabase } = await import('./supabase.js');
+            const sb = await getSupabase();
+            await _joinChannel(sb, newRoomName);
+        } catch (e) {
+            console.warn('[room] channel switch failed:', e);
+        }
+    }
+
+    // Intercept send({type:'join'}) to actually switch channel
+    const _send = send;
+    function sendWithRoomSwitch(obj) {
+        if (obj && obj.type === 'join' && obj.room && obj.room !== _currentRoom) {
+            _switchRoom(obj.room).catch(() => {});
+        }
+        _send(obj);
+    }
 
     return {
         presence,
@@ -85,8 +203,8 @@ const room = (function () {
         subscribePresence,
         subscribeRoomState,
         subscribePresenceUpdateRequests,
-        send,
-        onmessage: () => {}
+        send: sendWithRoomSwitch,
+        onmessage: null
     };
 })();
 
@@ -3598,70 +3716,16 @@ document.getElementById('btn-play').onclick = () => {
                 title.textContent = g.name;
                 meta.appendChild(title);
 
-                // Creator row — prominently displayed with clickable avatar
+                // Creator row — plain author name, no avatar, no profile click
                 const creatorRow = document.createElement('div');
                 creatorRow.style.cssText = `
-                    display:flex; align-items:center; gap:7px;
-                    font-size:13px; color:${isRemote ? '#00d4ff' : '#5bc8ff'};
-                    font-weight:bold; cursor:pointer;
+                    font-size:12px; color:#8b949e;
+                    font-weight:500; margin-top:2px;
                 `;
-                creatorRow.title = `View ${g.author || 'Unknown'}'s profile`;
-
-                // Mini avatar icon (uses stored colors or default) — uses drawBlockyCharacter
-                const avatarCanvas = document.createElement('canvas');
-                avatarCanvas.width = 36;
-                avatarCanvas.height = 48;
-                avatarCanvas.style.cssText = `
-                    border-radius:6px; border:1.5px solid rgba(255,255,255,0.12);
-                    background:#0d1117; flex-shrink:0; cursor:pointer; image-rendering:pixelated;
-                `;
-                // Draw mini avatar from stored colors
-                (() => {
-                    let colors = { head:'#f5cba7', torso:'#3b5998', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#1a237e', rleg:'#1a237e' };
-                    try {
-                        const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${g.author}`) || 'null');
-                        if (stored) colors = stored;
-                    } catch(e){}
-                    drawBlockyCharacter(avatarCanvas, colors);
-                })();
-
-                creatorRow.appendChild(avatarCanvas);
                 const creatorName = document.createElement('span');
-                creatorName.textContent = g.author || 'Unknown';
+                creatorName.textContent = `by ${g.author || 'Unknown'}`;
                 creatorRow.appendChild(creatorName);
-
-                // Click to open profile modal
-                creatorRow.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openProfileModal(g.author || 'Unknown', g.visits || visits);
-                });
-
                 meta.appendChild(creatorRow);
-
-                // Stats row
-                const visitsNum = visits >= 1000000 ? `${(visits/1000000).toFixed(1)}M` : visits >= 1000 ? `${Math.round(visits/100)/10}K` : `${visits}`;
-                const visitsText = `${visitsNum} visits`;
-                const up = stored.up || 0;
-                const down = stored.down || 0;
-                const percent = likePercentage({ up, down }) || 0;
-
-                const stats = document.createElement('div');
-                stats.style.cssText = `
-                    display:flex; align-items:center; gap:8px;
-                    font-size:12px; color:${isRemote ? '#88aacc' : '#7890b0'};
-                    margin-top:3px; flex-wrap:wrap;
-                `;
-                stats.innerHTML = `
-                    <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                        ${visitsText}
-                    </span>
-                    <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
-                        <strong>${percent}%</strong>
-                    </span>
-                `;
-                meta.appendChild(stats);
 
                 const descRow = document.createElement('div');
                 descRow.style.display = 'flex';
@@ -3674,10 +3738,8 @@ document.getElementById('btn-play').onclick = () => {
                 playBtn.className = 'menu-btn';
                 playBtn.textContent = 'Play';
                 playBtn.style.cssText = `
-                    width:110px; padding:7px 0;
-                    background:${isRemote ? 'linear-gradient(135deg,#00d4ff,#0066ff)' : '#00cc44'};
-                    color:#fff; font-weight:bold; border:none; border-radius:6px;
-                    cursor:pointer; font-size:13px;
+                    width:90px; padding:6px 0;
+                    font-weight:600; font-size:13px;
                 `;
                 // For Supabase-published entries, use world_data; otherwise fall back to local
                 playBtn.onclick = () => {
@@ -3702,26 +3764,15 @@ document.getElementById('btn-play').onclick = () => {
                 const upBtn = document.createElement('button');
                 upBtn.className = 'menu-btn';
                 upBtn.textContent = `▲ ${stored.up}`;
-                upBtn.style.cssText = `padding:5px 10px; background:rgba(0,220,100,0.15); border:1px solid rgba(0,220,100,0.4); border-radius:6px; color:${isRemote ? '#00dc64' : '#006600'}; cursor:pointer; font-size:12px; font-weight:bold;`;
+                upBtn.style.cssText = `padding:5px 10px; font-size:12px;`;
                 const downBtn = document.createElement('button');
                 downBtn.className = 'menu-btn';
                 downBtn.textContent = `▼ ${stored.down}`;
-                downBtn.style.cssText = `padding:5px 10px; background:rgba(255,80,80,0.1); border:1px solid rgba(255,80,80,0.3); border-radius:6px; color:${isRemote ? '#ff6666' : '#880000'}; cursor:pointer; font-size:12px; font-weight:bold;`;
+                downBtn.style.cssText = `padding:5px 10px; font-size:12px;`;
 
                 const refreshVotes = () => {
                     upBtn.textContent = `▲ ${stored.up}`;
                     downBtn.textContent = `▼ ${stored.down}`;
-                    const p = likePercentage({ up: stored.up, down: stored.down });
-                    stats.innerHTML = `
-                        <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                            ${visitsText}
-                        </span>
-                        <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
-                            <strong>${p}%</strong>
-                        </span>
-                    `;
                 };
 
                 upBtn.addEventListener('click', () => {

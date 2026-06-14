@@ -171,29 +171,29 @@
             box-sizing: border-box;
             overflow-y: auto;
         }
-        /* Faundry button styles — Polytoria-inspired clean pill buttons */
+        /* Button styles — dark grey minimal */
         .xp-button, .menu-btn, .hud-btn, #dev-menu button, #btn-cust-done {
-            background: #1565c0 !important;
-            border: none !important;
-            color: #ffffff !important;
-            border-radius: 22px !important;
+            background: #1e1e1e !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            color: #e6edf3 !important;
+            border-radius: 8px !important;
             cursor: pointer;
-            box-shadow: 0 2px 0 #0d47a1, 0 4px 14px rgba(21,101,192,0.35) !important;
-            font-weight: 700;
+            box-shadow: none !important;
+            font-weight: 600;
             text-align: center;
-            transition: background 0.12s, box-shadow 0.12s, transform 0.08s !important;
-            letter-spacing: 0.02em;
+            transition: background 0.1s, border-color 0.1s !important;
+            letter-spacing: 0.01em;
             font-size: 14px;
         }
         .xp-button:hover, .menu-btn:hover, .hud-btn:hover, #dev-menu button:hover, #btn-cust-done:hover {
-            background: #1976d2 !important;
-            box-shadow: 0 2px 0 #0d47a1, 0 6px 20px rgba(21,101,192,0.5) !important;
-            transform: translateY(-1px);
+            background: #2a2a2a !important;
+            border-color: rgba(255,255,255,0.15) !important;
+            transform: none !important;
         }
         .xp-button:active, .menu-btn:active, .hud-btn:active, #dev-menu button:active, #btn-cust-done:active {
-            background: #0d47a1 !important;
-            box-shadow: 0 1px 0 #0a2f6e !important;
-            transform: translateY(1px);
+            background: #141414 !important;
+            border-color: rgba(255,255,255,0.06) !important;
+            transform: none !important;
         }
         
         #dev-menu {
@@ -818,19 +818,19 @@
                     </div>
                     <div id="name-limit-msg" style="font-size: 10px; color: red; margin-top: 2px;"></div>
                 </div>
-                <button id="btn-play" class="menu-btn" style="background:#1565c0 !important; border:none !important; color:#fff !important; font-size:15px; letter-spacing:0.06em; box-shadow:0 2px 0 #0d47a1, 0 4px 18px rgba(21,101,192,0.4) !important; font-weight:800;">EXPLORE</button>
+                <button id="btn-play" class="menu-btn" style="font-size:15px; letter-spacing:0.06em; font-weight:700;">EXPLORE</button>
                 <button id="btn-studio" class="menu-btn" style="display:none;">ROBLOX Studio</button>
 
                 <!-- CUSTOMIZE CHARACTER moved into Explore tabs -->
-                <button id="btn-creator" class="menu-btn" style="background:#6a1b9a !important; border:none !important; color:#fff !important; box-shadow:0 2px 0 #4a148c, 0 4px 16px rgba(106,27,154,0.4) !important; font-weight:800;">CREATOR</button>
-                <button id="btn-marketplace" class="menu-btn" style="background:#e65100 !important; border:none !important; color:#fff !important; box-shadow:0 2px 0 #bf360c, 0 4px 16px rgba(230,81,0,0.4) !important; font-weight:800;">MARKETPLACE</button>
+                <button id="btn-creator" class="menu-btn" style="font-weight:700;">CREATOR</button>
+                <button id="btn-marketplace" class="menu-btn" style="font-weight:700;">MARKETPLACE</button>
                 <div style="display:flex; gap:8px; align-items:center; margin-top:6px; width:100%; justify-content:center; position:relative;">
                     <div style="font-weight:bold; color:#d8e0f8; font-size:14px; background:rgba(245,166,35,0.1); padding:5px 14px; border-radius:12px; border:1px solid rgba(245,166,35,0.3); display:flex; align-items:center; gap:6px;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                         Points: <span id="points-display" style="color:#f5a623; font-size:16px;">0</span>
                     </div>
                 </div>
-                <button id="btn-toggle-mobile" class="menu-btn" style="background: #00aaff; color: white;">TOGGLE MOBILE MODE</button>
+                <button id="btn-toggle-mobile" class="menu-btn">TOGGLE MOBILE MODE</button>
                 <!-- Catalog (2006 themed) -->
 
             </div>
@@ -856,7 +856,7 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; width: 100%; justify-content: center; margin-top: 15px;">
-                    <button id="btn-gd-play" class="menu-btn" style="width: 150px; background: #2e7d32 !important; color: #fff !important; font-weight: 800; border: none !important; box-shadow: 0 2px 0 #1b5e20, 0 4px 16px rgba(46,125,50,0.45) !important;">PLAY</button>
+                    <button id="btn-gd-play" class="menu-btn" style="width: 150px; font-weight: 700;">PLAY</button>
                     <button id="btn-gd-back" class="menu-btn" style="width: 100px;">Cancel</button>
                 </div>
 
