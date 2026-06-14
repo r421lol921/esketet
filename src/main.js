@@ -3538,21 +3538,23 @@ document.getElementById('btn-play').onclick = () => {
                 container.style.gap = '0';
                 container.style.background = isRemote
                     ? 'linear-gradient(135deg,#0d1b2a,#1a2a3a)'
-                    : '#fff';
-                container.style.border = isRemote ? '2px solid #00d4ff44' : '2px solid #ddd';
+                    : 'linear-gradient(135deg,#0e1028,#141830)';
+                container.style.border = isRemote ? '1.5px solid rgba(0,212,255,0.28)' : '1.5px solid rgba(80,100,160,0.22)';
                 container.style.borderRadius = '10px';
                 container.style.overflow = 'hidden';
                 container.style.boxShadow = isRemote
                     ? '0 4px 20px rgba(0,212,255,0.12)'
-                    : '0 2px 8px rgba(0,0,0,0.06)';
-                container.style.transition = 'transform 0.15s, box-shadow 0.15s';
+                    : '0 2px 10px rgba(0,0,0,0.4)';
+                container.style.transition = 'transform 0.15s, box-shadow 0.15s, border-color 0.15s';
                 container.addEventListener('mouseenter', () => {
                     container.style.transform = 'translateY(-2px)';
-                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 18px rgba(0,0,0,0.12)';
+                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 24px rgba(0,100,200,0.22)';
+                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.5)' : 'rgba(0,180,255,0.35)';
                 });
                 container.addEventListener('mouseleave', () => {
                     container.style.transform = '';
-                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 8px rgba(0,0,0,0.06)';
+                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 10px rgba(0,0,0,0.4)';
+                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.28)' : 'rgba(80,100,160,0.22)';
                 });
 
                 // Thumbnail
@@ -3591,7 +3593,7 @@ document.getElementById('btn-play').onclick = () => {
                 const title = document.createElement('div');
                 title.style.fontWeight = 'bold';
                 title.style.fontSize = '16px';
-                title.style.color = isRemote ? '#e8f4fd' : '#111';
+                title.style.color = isRemote ? '#e8f4fd' : '#d8e0f8';
                 title.style.lineHeight = '1.2';
                 title.textContent = g.name;
                 meta.appendChild(title);
@@ -3600,7 +3602,7 @@ document.getElementById('btn-play').onclick = () => {
                 const creatorRow = document.createElement('div');
                 creatorRow.style.cssText = `
                     display:flex; align-items:center; gap:7px;
-                    font-size:13px; color:${isRemote ? '#00d4ff' : '#0055aa'};
+                    font-size:13px; color:${isRemote ? '#00d4ff' : '#5bc8ff'};
                     font-weight:bold; cursor:pointer;
                 `;
                 creatorRow.title = `View ${g.author || 'Unknown'}'s profile`;
@@ -3663,7 +3665,7 @@ document.getElementById('btn-play').onclick = () => {
                 const stats = document.createElement('div');
                 stats.style.cssText = `
                     display:flex; align-items:center; gap:8px;
-                    font-size:12px; color:${isRemote ? '#88aacc' : '#666'};
+                    font-size:12px; color:${isRemote ? '#88aacc' : '#7890b0'};
                     margin-top:3px; flex-wrap:wrap;
                 `;
                 stats.innerHTML = `
@@ -6015,8 +6017,8 @@ function openProfileModal(username, totalVisits) {
         : `${totalVisits || 0} total visits`;
 
     document.getElementById('profile-stats').innerHTML = `
-        <span style="background:rgba(0,80,200,0.09);padding:3px 10px;border-radius:10px;font-weight:bold;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#0055aa" style="vertical-align:middle;margin-right:3px;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5z"/></svg>
+        <span style="background:rgba(0,180,255,0.1);padding:4px 12px;border-radius:10px;font-weight:bold;color:#8cceff;border:1px solid rgba(0,180,255,0.2);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#00d4ff" style="vertical-align:middle;margin-right:3px;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5z"/></svg>
             ${vStr}
         </span>
     `;
@@ -6121,14 +6123,15 @@ function openMarketplace() {
 function showMarketplaceBrowse(pts) {
     const content = document.getElementById('mkt-content');
     if (!content) return;
-    content.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <div style="font-size:20px;font-weight:bold;color:#5a3e00;">T-Shirts for Sale</div>
-        <div style="background:rgba(180,134,0,0.13);padding:5px 14px;border-radius:12px;font-weight:bold;color:#7a4e00;border:1px solid #d4a017;">
-            Your Points: <span id="mkt-pts-display" style="color:#b8860b;">${pts}</span>
+    content.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:18px;font-weight:bold;color:#f5a623;letter-spacing:0.04em;">T-Shirts for Sale</div>
+        <div style="background:rgba(245,166,35,0.1);padding:6px 16px;border-radius:12px;font-weight:bold;color:#d8e0f8;border:1px solid rgba(245,166,35,0.3);display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+            Points: <span id="mkt-pts-display" style="color:#f5a623;font-size:16px;">${pts}</span>
         </div>
     </div>
-    <div id="mkt-listings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;"></div>
-    <div id="mkt-loading" style="text-align:center;color:#888;padding:20px;">Loading listings...</div>`;
+    <div id="mkt-listings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;"></div>
+    <div id="mkt-loading" style="text-align:center;color:#506080;padding:24px;font-size:14px;">Loading listings...</div>`;
 
     // Load listings
     (async () => {
@@ -6145,7 +6148,9 @@ function showMarketplaceBrowse(pts) {
             }
             listings.forEach(item => {
                 const card = document.createElement('div');
-                card.style.cssText = `border:2px solid #d4a017;border-radius:10px;overflow:hidden;background:#fffde8;box-shadow:0 2px 8px rgba(180,134,0,0.12);display:flex;flex-direction:column;`;
+                card.style.cssText = `border:1.5px solid rgba(245,166,35,0.28);border-radius:10px;overflow:hidden;background:rgba(20,15,3,0.95);box-shadow:0 4px 16px rgba(0,0,0,0.5);display:flex;flex-direction:column;transition:border-color 0.15s,box-shadow 0.15s;`;
+                card.addEventListener('mouseenter', () => { card.style.borderColor = 'rgba(245,166,35,0.55)'; card.style.boxShadow = '0 6px 24px rgba(245,166,35,0.15)'; });
+                card.addEventListener('mouseleave', () => { card.style.borderColor = 'rgba(245,166,35,0.28)'; card.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)'; });
                 const imgEl = document.createElement('img');
                 imgEl.src = item.image_url || '/DefaultThumb.png';
                 imgEl.alt = item.name;
@@ -6155,18 +6160,18 @@ function showMarketplaceBrowse(pts) {
                 const info = document.createElement('div');
                 info.style.cssText = `padding:8px;flex:1;display:flex;flex-direction:column;gap:4px;`;
                 info.innerHTML = `
-                    <div style="font-weight:bold;font-size:13px;color:#333;">${item.name}</div>
-                    <div style="font-size:11px;color:#666;">By ${item.seller || 'Unknown'}</div>
-                    <div style="font-size:11px;color:#888;">${item.description || ''}</div>
+                    <div style="font-weight:bold;font-size:13px;color:#d8e0f8;">${item.name}</div>
+                    <div style="font-size:11px;color:#5bc8ff;">By ${item.seller || 'Unknown'}</div>
+                    <div style="font-size:11px;color:#7890b0;">${item.description || ''}</div>
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:6px;">
-                        <span style="font-weight:bold;color:#b8860b;font-size:14px;">${item.price} pts</span>
-                        <span style="font-size:10px;color:#aaa;">${item.sales || 0} sold</span>
+                        <span style="font-weight:bold;color:#f5a623;font-size:14px;">${item.price} pts</span>
+                        <span style="font-size:10px;color:#506080;">${item.sales || 0} sold</span>
                     </div>
                 `;
                 const buyBtn = document.createElement('button');
                 buyBtn.className = 'menu-btn';
                 buyBtn.textContent = 'Buy';
-                buyBtn.style.cssText = `margin:0 8px 8px 8px;background:linear-gradient(to bottom,#fff9d0,#ffd966) !important;border-color:#b8860b !important;color:#5a3e00 !important;font-weight:bold;`;
+                buyBtn.style.cssText = `margin:0 8px 8px 8px;background:rgba(245,166,35,0.12) !important;border-color:rgba(245,166,35,0.4) !important;color:#f5a623 !important;font-weight:bold;border-radius:6px;`;
                 buyBtn.addEventListener('click', () => {
                     const currentPts = getMyPoints();
                     if (currentPts < item.price) {
@@ -6216,30 +6221,30 @@ function showMarketplaceSell() {
     if (!content) return;
     const currentUsername = (document.getElementById('input-username') || {}).value || 'Guest';
     content.innerHTML = `
-        <div style="font-size:20px;font-weight:bold;color:#5a3e00;margin-bottom:14px;">List a T-Shirt for Sale</div>
-        <div style="display:flex;flex-direction:column;gap:12px;max-width:420px;">
+        <div style="font-size:18px;font-weight:bold;color:#f5a623;margin-bottom:16px;letter-spacing:0.04em;">List a T-Shirt for Sale</div>
+        <div style="display:flex;flex-direction:column;gap:13px;max-width:420px;">
             <div>
-                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:4px;">Item Name</label>
-                <input id="mkt-sell-name" type="text" maxlength="40" placeholder="e.g. Cool Blue Tee" style="width:100%;box-sizing:border-box;padding:8px;border:2px solid #d4a017;border-radius:6px;font-size:14px;background:#fffde8;">
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">Item Name</label>
+                <input id="mkt-sell-name" type="text" maxlength="40" placeholder="e.g. Cool Blue Tee" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid rgba(245,166,35,0.3);border-radius:7px;font-size:14px;background:rgba(20,14,2,0.8);color:#d8e0f8;">
             </div>
             <div>
-                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:4px;">Description</label>
-                <input id="mkt-sell-desc" type="text" maxlength="100" placeholder="Short description..." style="width:100%;box-sizing:border-box;padding:8px;border:2px solid #d4a017;border-radius:6px;font-size:14px;background:#fffde8;">
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">Description</label>
+                <input id="mkt-sell-desc" type="text" maxlength="100" placeholder="Short description..." style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid rgba(245,166,35,0.3);border-radius:7px;font-size:14px;background:rgba(20,14,2,0.8);color:#d8e0f8;">
             </div>
             <div>
-                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:4px;">Price (Points)</label>
-                <input id="mkt-sell-price" type="number" min="1" max="9999" value="50" style="width:100%;box-sizing:border-box;padding:8px;border:2px solid #d4a017;border-radius:6px;font-size:14px;background:#fffde8;">
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">Price (Points)</label>
+                <input id="mkt-sell-price" type="number" min="1" max="9999" value="50" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid rgba(245,166,35,0.3);border-radius:7px;font-size:14px;background:rgba(20,14,2,0.8);color:#d8e0f8;">
             </div>
             <div>
-                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:4px;">T-Shirt Image</label>
-                <div id="mkt-img-preview" style="width:120px;height:120px;border:2px dashed #d4a017;border-radius:8px;background:#fffbe0;display:flex;align-items:center;justify-content:center;color:#b8860b;font-size:12px;margin-bottom:6px;">No image</div>
-                <input id="mkt-sell-image" type="file" accept="image/*" style="font-size:13px;">
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">T-Shirt Image</label>
+                <div id="mkt-img-preview" style="width:120px;height:120px;border:2px dashed rgba(245,166,35,0.35);border-radius:8px;background:rgba(20,14,2,0.6);display:flex;align-items:center;justify-content:center;color:#7a6030;font-size:12px;margin-bottom:8px;">No image</div>
+                <input id="mkt-sell-image" type="file" accept="image/*" style="font-size:13px;color:#7890b0;">
             </div>
             <div style="display:flex;gap:10px;align-items:center;">
-                <div style="font-size:13px;color:#666;">Listing as: <strong>${currentUsername}</strong></div>
+                <div style="font-size:13px;color:#7890b0;">Listing as: <strong style="color:#d8e0f8;">${currentUsername}</strong></div>
             </div>
-            <div id="mkt-sell-status" style="display:none;padding:8px;border-radius:6px;font-weight:bold;font-size:13px;"></div>
-            <button id="mkt-btn-submit" class="menu-btn" style="background:linear-gradient(to bottom,#fff9d0,#ffd966) !important;border-color:#b8860b !important;color:#5a3e00 !important;font-weight:bold;padding:10px;font-size:15px;">List Item</button>
+            <div id="mkt-sell-status" style="display:none;padding:9px;border-radius:7px;font-weight:bold;font-size:13px;"></div>
+            <button id="mkt-btn-submit" class="menu-btn" style="background:rgba(245,166,35,0.14) !important;border-color:rgba(245,166,35,0.45) !important;color:#f5a623 !important;font-weight:bold;padding:11px;font-size:15px;box-shadow:0 0 14px rgba(245,166,35,0.18) !important;">List Item (+15 pts reward)</button>
         </div>
     `;
 
@@ -6305,21 +6310,21 @@ function showMarketplaceMine() {
     const currentUsername = (document.getElementById('input-username') || {}).value || 'Guest';
     let owned = [];
     try { owned = JSON.parse(localStorage.getItem('nblox_owned_tshirts') || '[]'); } catch(e){}
-    content.innerHTML = `<div style="font-size:20px;font-weight:bold;color:#5a3e00;margin-bottom:14px;">My Inventory</div>`;
+    content.innerHTML = `<div style="font-size:18px;font-weight:bold;color:#f5a623;margin-bottom:14px;letter-spacing:0.04em;">My Inventory</div>`;
     if (!owned.length) {
-        content.innerHTML += `<div style="color:#888;font-style:italic;">You haven't purchased any T-shirts yet. Browse the marketplace!</div>`;
+        content.innerHTML += `<div style="color:#506080;font-style:italic;">You haven't purchased any T-shirts yet. Browse the marketplace!</div>`;
         return;
     }
     const grid = document.createElement('div');
     grid.style.cssText = `display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;`;
     owned.forEach(item => {
         const card = document.createElement('div');
-        card.style.cssText = `border:2px solid #d4a017;border-radius:10px;overflow:hidden;background:#fffde8;box-shadow:0 2px 8px rgba(180,134,0,0.1);`;
+        card.style.cssText = `border:1.5px solid rgba(245,166,35,0.28);border-radius:10px;overflow:hidden;background:rgba(20,15,3,0.95);box-shadow:0 4px 16px rgba(0,0,0,0.5);`;
         card.innerHTML = `
             <img src="${item.image_url || '/DefaultThumb.png'}" alt="${item.name}" style="width:100%;height:110px;object-fit:cover;" onerror="this.src='/DefaultThumb.png'">
-            <div style="padding:8px;">
-                <div style="font-weight:bold;font-size:13px;color:#333;">${item.name}</div>
-                <div style="font-size:10px;color:#999;margin-top:3px;">Purchased</div>
+            <div style="padding:9px;">
+                <div style="font-weight:bold;font-size:13px;color:#d8e0f8;">${item.name}</div>
+                <div style="font-size:10px;color:#5bc8ff;margin-top:3px;letter-spacing:0.05em;">OWNED</div>
             </div>
         `;
         grid.appendChild(card);
