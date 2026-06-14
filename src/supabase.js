@@ -62,6 +62,7 @@ export async function incrementVisit(gameId) {
 }
 
 /**
+<<<<<<< HEAD
  * Save a player's avatar to Supabase.
  * @param {{ username: string, colors: object, hatData?: object, avatarDataUrl?: string }} payload
  * @returns {Promise<void>}
@@ -174,6 +175,8 @@ export async function uploadTshirtImage(file, sellerId) {
 }
 
 /**
+=======
+>>>>>>> origin/creator-and-explore-games
  * Upload a thumbnail image to Supabase Storage.
  * Returns the public URL or null on failure.
  * @param {File} file
