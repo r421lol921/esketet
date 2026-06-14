@@ -183,16 +183,6 @@ const room = (function () {
         }
     }
 
-    function send(obj) {
-        if (_channel) {
-            _channel.send({
-                type: 'broadcast',
-                event: 'msg',
-                payload: { ...obj, _from: clientId }
-            }).catch(() => {});
-        }
-    }
-
     return {
         presence,
         roomState,
