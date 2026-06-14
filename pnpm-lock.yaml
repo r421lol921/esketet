@@ -14,6 +14,12 @@ importers:
       mongodb:
         specifier: ^5.7.0
         version: 5.9.2
+      nipplejs:
+        specifier: ^1.0.4
+        version: 1.0.4
+      three:
+        specifier: ^0.184.0
+        version: 0.184.0
       ws:
         specifier: ^8.13.0
         version: 8.21.0
@@ -243,6 +249,9 @@ packages:
     resolution: {integrity: sha512-+EUsqGPLsM+j/zdChZjsnX51g4XrHFOIXwfnCVPGlQk/k5giakcKsuxCObBRu6DSm9opw/O6slWbJdghQM4bBg==}
     engines: {node: '>= 0.6'}
 
+  nipplejs@1.0.4:
+    resolution: {integrity: sha512-YtvRZDuyWQ+tOj0nUjfnZt4ZQmJVWfK9+yPmV5OXpQ4k4AkOGcSfKvSXbPNkV0ERqc4eakkBSZ7/Wyx1y6h/Sg==}
+
   object-inspect@1.13.4:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
@@ -325,6 +334,9 @@ packages:
   statuses@2.0.2:
     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
     engines: {node: '>= 0.8'}
+
+  three@0.184.0:
+    resolution: {integrity: sha512-wtTRjG92pM5eUg/KuUnHsqSAlPM296brTOcLgMRqEeylYTh/CdtvKUvCyyCQTzFuStieWxvZb8mVTMvdPyUpxg==}
 
   toidentifier@1.0.1:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
@@ -605,6 +617,8 @@ snapshots:
 
   negotiator@0.6.3: {}
 
+  nipplejs@1.0.4: {}
+
   object-inspect@1.13.4: {}
 
   on-finished@2.4.1:
@@ -709,6 +723,8 @@ snapshots:
     optional: true
 
   statuses@2.0.2: {}
+
+  three@0.184.0: {}
 
   toidentifier@1.0.1: {}
 
