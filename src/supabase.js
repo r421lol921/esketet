@@ -1,15 +1,12 @@
 // Supabase client for Faundry game publishing & explore
-// Uses the ESM CDN build of @supabase/supabase-js
+import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = 'https://yiiiukhwhjsatwxbzfjr.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlpaWl1a2h3aGpzYXR3eGJ6ZmpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0NDQ4MDIsImV4cCI6MjA5NzAyMDgwMn0.-NHST7jqeIUPUUqZ0cbEBreECNTiZ04dxSo-6trXDfs';
 
-let _supabase = null;
+const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export async function getSupabase() {
-    if (_supabase) return _supabase;
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     return _supabase;
 }
 
