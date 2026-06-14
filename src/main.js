@@ -8,166 +8,9 @@ import { Player, createPlayerMesh } from './Player.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { InputManager } from './InputManager.js';
 import { boxUnwrapUVs, surfaceManager, createFaceTexture, createTorsoTexture } from './utils.js';
+import { publishGame, fetchGames, incrementVisit, uploadThumbnail } from './supabase.js';
 
- // Firebase helper: try to initialize Firestore robustly.
- // Prefer modular SDK loaded dynamically (esm.sh) if available, otherwise fall back to compat global window.firebase.
- const firebaseConfig = {
-   apiKey: "AIzaSyDBq-De93i2-qWDjitqgdMjbczx1va6qw",
-   authDomain: "gamefaundry.firebaseapp.com",
-   projectId: "gamefaundry",
-   storageBucket: "gamefaundry.firebasestorage.app",
-   messagingSenderId: "637974970516",
-   appId: "1:637974970516:web:61ac1de33ffee5c5087481",
-   measurementId: "G-V0ZZLG7HZ3"
- };
 
- // Will hold a simple interface to call Firestore add
- let _firestoreClient = null;
-// Backwards-compatible Firestore handle used by older fetchRemoteGames paths.
-// initFirestore() returns a client wrapper, but some legacy code checks firebaseDb directly.
-let firebaseDb = null;
-
- async function initFirestore() {
-     // If already initialized return
-     if (_firestoreClient) return _firestoreClient;
-
-     // Try paths in order: compat global -> modular ESM -> injected compat scripts
-     // 1) Compat global (window.firebase)
-     try {
-         if (window.firebase && window.firebase.apps && window.firebase.apps.length) {
-             try {
-                 const db = window.firebase.firestore();
-                 firebaseDb = db;
-                 _firestoreClient = {
-                     addGame: async (doc) => {
-                         const r = await db.collection('games').add(doc);
-                         return { id: r.id, raw: r };
-                     },
-                     listGames: async () => {
-                         const snap = await db.collection('games').get();
-                         const out = [];
-                         snap.forEach(doc => out.push({ id: doc.id, data: doc.data() }));
-                         return out;
-                     }
-                 };
-                 console.log('Firestore initialized via compat global.');
-                 return _firestoreClient;
-             } catch (e) {
-                 console.warn('Compat Firestore init failed:', e);
-             }
-         }
-     } catch (e) {
-         console.warn('Compat check failed:', e);
-     }
-
-     // 2) Modular SDK (ESM)
-     try {
-         const appMod = await import('https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js');
-         const fsMod = await import('https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js');
-
-         const { initializeApp } = appMod;
-         const { getFirestore, collection, addDoc, getDocs, serverTimestamp } = fsMod;
-
-         const app = initializeApp(firebaseConfig);
-         const db = getFirestore(app);
-
-         _firestoreClient = {
-             addGame: async (doc) => {
-                 try { doc.date = serverTimestamp ? serverTimestamp() : Date.now(); } catch(e){}
-                 const colRef = collection(db, 'games');
-                 const r = await addDoc(colRef, doc);
-                 return { id: r.id, raw: r };
-             },
-             listGames: async () => {
-                 try {
-                     const colRef = collection(db, 'games');
-                     const snap = await getDocs(colRef);
-                     const out = [];
-                     snap.forEach(d => out.push({ id: d.id, data: d.data() }));
-                     return out;
-                 } catch (err) {
-                     console.warn('modular listGames failed:', err);
-                     return [];
-                 }
-             }
-         };
-
-         try { firebaseDb = db; } catch(e){}
-         console.log('Firestore initialized via Google CDN modular SDK.');
-         return _firestoreClient;
-     } catch (e) {
-         console.warn('Modular Firebase init via gstatic failed:', e);
-     }
-
-     // 3) Inject compat scripts
-     try {
-         if (!window.firebase) {
-             await new Promise((resolve, reject) => {
-                 const s1 = document.createElement('script');
-                 s1.src = 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js';
-                 s1.onload = () => {
-                     const s2 = document.createElement('script');
-                     s2.src = 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js';
-                     s2.onload = () => resolve();
-                     s2.onerror = reject;
-                     document.head.appendChild(s2);
-                 };
-                 s1.onerror = reject;
-                 document.head.appendChild(s1);
-             });
-         }
-         if (!window.firebase.apps || !window.firebase.apps.length) {
-             window.firebase.initializeApp(firebaseConfig);
-         }
-         const db = window.firebase.firestore();
-         firebaseDb = db;
-         _firestoreClient = {
-             addGame: async (doc) => {
-                 const r = await db.collection('games').add(doc);
-                 return { id: r.id, raw: r };
-             },
-             listGames: async () => {
-                 const snap = await db.collection('games').get();
-                 const out = [];
-                 snap.forEach(doc => out.push({ id: doc.id, data: doc.data() }));
-                 return out;
-             }
-         };
-         console.log('Firestore initialized via injected compat scripts.');
-         return _firestoreClient;
-     } catch (e) {
-         console.warn('Compat script injection failed:', e);
-     }
-
-     // All attempts failed
-     _firestoreClient = null;
-     return null;
- }
-
- // Publish helper used by Creator Publish flow. Will persist locally, then attempt Firestore upload.
- async function publishGameToRemote(saveObj) {
-     // Ensure minimal metadata
-     const payload = {
-         name: saveObj.name,
-         author: saveObj.author || 'Unknown',
-         date: saveObj.date || Date.now(),
-         visits: saveObj.visits || 0,
-         up: saveObj.up || 0,
-         down: saveObj.down || 0,
-         world: saveObj.data || saveObj.world || null
-     };
-
-     // Try to initialize Firestore client
-     try {
-         const client = await initFirestore();
-         if (!client) throw new Error('Firestore client not available');
-         const res = await client.addGame(payload);
-         return res;
-     } catch (e) {
-         console.warn('publishGameToRemote failed:', e);
-         throw e;
-     }
- }
 
 /*
   TOMBSTONE / REFACTOR NOTE
@@ -2119,88 +1962,179 @@ Object.values(propInputs).forEach(input => {
 });
 
 
-document.getElementById('tool-publish').onclick = async () => {
-    playSwitch();
-    // Prompt for name but allow default
-    let defaultName = "My Game";
-    if (editingGameName) {
-        defaultName = isRemixMode ? `Remix of ${editingGameName}` : editingGameName;
-    }
-    
-    // Validate map name: only letters and spaces, 1-30 characters
-    const isValidMapName = (name) => {
-        if (!name) return false;
-        // Allow letters (A-Z, a-z) and spaces, length 1..30
-        return /^[A-Za-z\s]{1,30}$/.test(name.trim());
-    };
+// ===== PUBLISH MODAL LOGIC =====
+(function setupPublishModal() {
+    const modal = document.getElementById('publish-modal');
+    const nameInput = document.getElementById('publish-name');
+    const thumbPreview = document.getElementById('publish-thumb-preview');
+    const thumbOverlay = document.getElementById('publish-thumb-overlay');
+    const thumbFileInput = document.getElementById('publish-thumb-input');
+    const thumbBtn = document.getElementById('publish-thumb-btn');
+    const thumbScreenshotBtn = document.getElementById('publish-thumb-screenshot-btn');
+    const authorDisplay = document.getElementById('publish-author-display');
+    const statusEl = document.getElementById('publish-status');
+    const submitBtn = document.getElementById('publish-submit-btn');
+    const cancelBtn = document.getElementById('publish-cancel-btn');
+    const closeBtn = document.getElementById('publish-modal-close');
 
-    let mapName = prompt("Enter a name for your game (letters and spaces only, max 30 chars):", defaultName);
-    if (mapName === null) return; // user cancelled
+    let _selectedThumbFile = null;
 
-    mapName = mapName.trim();
-
-    if (!isValidMapName(mapName)) {
-        alert("Invalid game name. Use only letters and spaces (1-30 characters). Save cancelled.");
-        return;
-    }
-
-    const username = document.getElementById('input-username').value || "Guest";
-    const data = world.serialize();
-    const saveObj = {
-        name: mapName,
-        author: username,
-        date: Date.now(),
-        data: data
-    };
-    
-    // Get existing (local fallback)
-    let saves = [];
-    try {
-        const raw = localStorage.getItem('nblox_maps');
-        if (raw) saves = JSON.parse(raw);
-    } catch(e) {}
-
-    // Overwrite if exists (by name)
-    const idx = saves.findIndex(s => s.name === mapName);
-    if (idx >= 0) saves[idx] = saveObj;
-    else saves.push(saveObj);
-    
-    try {
-        // Persist locally first
-        localStorage.setItem('nblox_maps', JSON.stringify(saves));
-        
-        // Update current editing context to the new name so subsequent saves default correctly
-        editingGameName = mapName;
-        isRemixMode = false; // Once saved, it's no longer a pending remix, it's your game
-
-        // Try to publish to Firestore (use publish helper which handles modular/compat fallbacks)
-        try {
-            const res = await publishGameToRemote({
-                name: mapName,
-                author: username,
-                date: Date.now(),
-                world: data
-            });
-            if (res && res.id) {
-                saveObj.remoteId = res.id;
-                // update local saved list entry to include remote id
-                const idx2 = saves.findIndex(s => s.name === mapName);
-                if (idx2 >= 0) {
-                    saves[idx2] = saveObj;
-                    localStorage.setItem('nblox_maps', JSON.stringify(saves));
-                }
-                alert("Game Published Successfully! (uploaded to Firestore)");
-            } else {
-                // If publish didn't throw but returned no id, treat as local-only
-                alert("Saved locally. Remote publish returned no id.");
-            }
-        } catch (err) {
-            console.warn('Remote publish failed:', err);
-            alert("Saved locally, but upload to Firebase failed. See console for details.");
+    // Show / hide helpers
+    const openModal = () => {
+        // Pre-fill name from current editing context
+        let defaultName = 'My Game';
+        if (typeof editingGameName !== 'undefined' && editingGameName) {
+            defaultName = (typeof isRemixMode !== 'undefined' && isRemixMode)
+                ? `Remix of ${editingGameName}` : editingGameName;
         }
-    } catch (e) {
-        alert("Failed to save! Game size is too large (likely the music). Try a smaller song.");
+        nameInput.value = defaultName;
+        // Pre-fill author
+        const username = document.getElementById('input-username')?.value || 'Guest';
+        if (authorDisplay) authorDisplay.textContent = username;
+        // Reset thumbnail
+        _selectedThumbFile = null;
+        thumbPreview.src = '/DefaultThumb.png';
+        // Hide status
+        statusEl.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Publish Game';
+        modal.style.display = 'flex';
+    };
+
+    const closeModal = () => { modal.style.display = 'none'; };
+
+    // Thumbnail hover effect
+    if (thumbPreview) {
+        thumbPreview.parentElement.addEventListener('mouseenter', () => { thumbOverlay.style.opacity = '1'; });
+        thumbPreview.parentElement.addEventListener('mouseleave', () => { thumbOverlay.style.opacity = '0'; });
+        thumbOverlay.addEventListener('click', () => thumbFileInput.click());
     }
+
+    // File picker
+    if (thumbBtn) thumbBtn.onclick = () => thumbFileInput.click();
+    if (thumbFileInput) {
+        thumbFileInput.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            _selectedThumbFile = file;
+            const url = URL.createObjectURL(file);
+            thumbPreview.src = url;
+            thumbFileInput.value = '';
+        };
+    }
+
+    // Screenshot button — capture the THREE.js canvas
+    if (thumbScreenshotBtn) {
+        thumbScreenshotBtn.onclick = () => {
+            try {
+                const canvas = document.querySelector('canvas');
+                if (!canvas) { alert('No canvas found to screenshot.'); return; }
+                canvas.toBlob((blob) => {
+                    if (!blob) return;
+                    _selectedThumbFile = new File([blob], 'screenshot.png', { type: 'image/png' });
+                    thumbPreview.src = URL.createObjectURL(_selectedThumbFile);
+                }, 'image/png');
+            } catch (e) {
+                console.warn('[v0] Screenshot failed:', e);
+            }
+        };
+    }
+
+    // Close buttons
+    if (closeBtn) closeBtn.onclick = closeModal;
+    if (cancelBtn) cancelBtn.onclick = closeModal;
+    // Click outside to close
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // Submit
+    if (submitBtn) {
+        submitBtn.onclick = async () => {
+            const isValidMapName = (n) => n && /^[A-Za-z\s]{1,30}$/.test(n.trim());
+            const mapName = (nameInput.value || '').trim();
+            if (!isValidMapName(mapName)) {
+                setStatus('error', 'Invalid name. Letters and spaces only, 1-30 chars.');
+                return;
+            }
+
+            const username = document.getElementById('input-username')?.value || 'Guest';
+            const data = world.serialize();
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Publishing...';
+            setStatus('info', 'Uploading your game...');
+
+            try {
+                // 1) Upload thumbnail first (if user provided one)
+                let thumbUrl = '/DefaultThumb.png';
+                if (_selectedThumbFile) {
+                    setStatus('info', 'Uploading thumbnail...');
+                    const tempId = 'tmp_' + Date.now();
+                    const uploaded = await uploadThumbnail(_selectedThumbFile, tempId);
+                    if (uploaded) thumbUrl = uploaded;
+                }
+
+                // 2) Publish to Supabase
+                setStatus('info', 'Saving to Faundry...');
+                const result = await publishGame({
+                    name: mapName,
+                    author: username,
+                    thumb_url: thumbUrl,
+                    world_data: data
+                });
+
+                // 3) Also save locally
+                try {
+                    const saveObj = { name: mapName, author: username, date: Date.now(), data, remoteId: result.id, thumb_url: thumbUrl };
+                    let saves = [];
+                    try { const raw = localStorage.getItem('nblox_maps'); if (raw) saves = JSON.parse(raw); } catch(e) {}
+                    const idx = saves.findIndex(s => s.name === mapName);
+                    if (idx >= 0) saves[idx] = saveObj; else saves.push(saveObj);
+                    localStorage.setItem('nblox_maps', JSON.stringify(saves));
+                } catch(e) {}
+
+                if (typeof editingGameName !== 'undefined') editingGameName = mapName;
+                if (typeof isRemixMode !== 'undefined') isRemixMode = false;
+
+                // Reset remote games cache so Explore will show the new game next time
+                if (window._remoteGamesCache) window._remoteGamesCache = { fetched: false, list: [] };
+
+                setStatus('success', `"${mapName}" published successfully!`);
+                submitBtn.textContent = 'Done!';
+                setTimeout(() => closeModal(), 2000);
+            } catch (err) {
+                console.warn('[v0] Publish failed:', err);
+                setStatus('error', 'Publish failed: ' + (err?.message || String(err)));
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Publish Game';
+            }
+        };
+    }
+
+    function setStatus(type, msg) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = msg;
+        if (type === 'success') {
+            statusEl.style.background = 'rgba(0,220,100,0.15)';
+            statusEl.style.border = '1px solid rgba(0,220,100,0.4)';
+            statusEl.style.color = '#00dc64';
+        } else if (type === 'error') {
+            statusEl.style.background = 'rgba(255,80,80,0.15)';
+            statusEl.style.border = '1px solid rgba(255,80,80,0.4)';
+            statusEl.style.color = '#ff6666';
+        } else {
+            statusEl.style.background = 'rgba(0,212,255,0.1)';
+            statusEl.style.border = '1px solid rgba(0,212,255,0.3)';
+            statusEl.style.color = '#00d4ff';
+        }
+    }
+
+    // Expose openModal globally so tool-publish can call it
+    window.__openPublishModal = openModal;
+})();
+
+document.getElementById('tool-publish').onclick = () => {
+    playSwitch();
+    if (window.__openPublishModal) window.__openPublishModal();
 };
 
 document.getElementById('tool-select').onclick = () => setStudioTool('select');
@@ -3533,108 +3467,29 @@ document.getElementById('btn-play').onclick = () => {
         rows.style.maxHeight = '62vh';
         tabContent.appendChild(rows);
 
-        // Remote games cache (fetched from Firestore)
+        // Remote games cache (fetched from Supabase)
         if (!window._remoteGamesCache) window._remoteGamesCache = { fetched: false, list: [] };
 
         const fetchRemoteGames = async () => {
             // If we've already fetched once, skip.
             if (window._remoteGamesCache.fetched) return;
-
-            // Ensure Firestore client is initialized (initFirestore handles compat/modular fallbacks)
             try {
-                const client = await initFirestore();
-                if (!client) {
-                    console.warn('Firestore client not available; skipping remote games fetch.');
-                    window._remoteGamesCache.fetched = true;
-                    return;
-                }
-
-                // If the client exposes listGames, use it (modular or compat wrapper)
-                if (typeof client.listGames === 'function') {
-                    try {
-                        const list = await client.listGames();
-                        // list may be array of {id,data} (modular wrapper) or compat QuerySnapshot
-                        const remote = [];
-                        if (Array.isArray(list)) {
-                            list.forEach(item => {
-                                const d = item.data || item.firestoreData || item.data || {};
-                                const raw = item.data || item.data;
-                                remote.push({
-                                    id: item.id,
-                                    name: (item.data && item.data.name) ? item.data.name : (item.firestoreData && item.firestoreData.name) || item.name || 'Published',
-                                    thumb: (item.data && (item.data.thumb || item.data.thumbnail)) || '/DefaultThumb.png',
-                                    visits: (item.data && item.data.visits) || (item.firestoreData && item.firestoreData.visits) || 0,
-                                    up: (item.data && item.data.up) || 0,
-                                    down: (item.data && item.data.down) || 0,
-                                    author: (item.data && item.data.author) || (item.firestoreData && item.firestoreData.author) || 'Unknown',
-                                    firestoreData: item.data || item.firestoreData || {}
-                                });
-                            });
-                        } else {
-                            // If list is a QuerySnapshot (compat path), iterate
-                            try {
-                                list.forEach && list.forEach(doc => {
-                                    const d = doc.data() || {};
-                                    remote.push({
-                                        id: doc.id,
-                                        name: d.name || (d.meta && d.meta.name) || 'Published',
-                                        thumb: d.thumb || d.thumbnail || '/DefaultThumb.png',
-                                        visits: d.visits || 0,
-                                        up: d.up || 0,
-                                        down: d.down || 0,
-                                        author: d.author || d.creator || 'Unknown',
-                                        firestoreData: d
-                                    });
-                                });
-                            } catch (e) {
-                                console.warn('Unexpected games list format', e);
-                            }
-                        }
-
-                        // newest first
-                        remote.sort((a,b) => (b.firestoreData && b.firestoreData.date ? b.firestoreData.date : 0) - (a.firestoreData && a.firestoreData.date ? a.firestoreData.date : 0));
-                        window._remoteGamesCache.list = remote;
-                        window._remoteGamesCache.fetched = true;
-                        render(); // re-render Explore list to include remote games
-                        return;
-                    } catch (err) {
-                        console.warn('client.listGames failed:', err);
-                    }
-                }
-
-                // Fallback: try legacy firebaseDb if present (compat)
-                if (firebaseDb && typeof firebaseDb.collection === 'function') {
-                    try {
-                        const snap = await firebaseDb.collection('games').get();
-                        const remote = [];
-                        snap.forEach(doc => {
-                            const d = doc.data() || {};
-                            remote.push({
-                                id: doc.id,
-                                name: d.name || (d.meta && d.meta.name) || 'Published',
-                                thumb: d.thumb || d.thumbnail || '/DefaultThumb.png',
-                                visits: d.visits || 0,
-                                up: d.up || 0,
-                                down: d.down || 0,
-                                author: d.author || d.creator || 'Unknown',
-                                firestoreData: d
-                            });
-                        });
-                        remote.sort((a,b) => (b.firestoreData && b.firestoreData.date ? b.firestoreData.date : 0) - (a.firestoreData && a.firestoreData.date ? a.firestoreData.date : 0));
-                        window._remoteGamesCache.list = remote;
-                        window._remoteGamesCache.fetched = true;
-                        render();
-                        return;
-                    } catch (err) {
-                        console.warn('Legacy firebaseDb fetch failed:', err);
-                    }
-                }
-
-                // If we reach here, we couldn't fetch; mark fetched to avoid loops
+                const list = await fetchGames();
+                const remote = list.map(g => ({
+                    id: g.id,
+                    name: g.name || 'Published',
+                    thumb: g.thumb_url || '/DefaultThumb.png',
+                    visits: g.visits || 0,
+                    up: g.up || 0,
+                    down: g.down || 0,
+                    author: g.author || 'Unknown',
+                    supabaseData: g
+                }));
+                window._remoteGamesCache.list = remote;
                 window._remoteGamesCache.fetched = true;
-                console.warn('Could not fetch remote games - no supported Firestore client available.');
+                render();
             } catch (e) {
-                console.warn('fetchRemoteGames failed:', e);
+                console.warn('[v0] fetchRemoteGames failed:', e);
                 window._remoteGamesCache.fetched = true;
             }
         };
@@ -3675,79 +3530,130 @@ document.getElementById('btn-play').onclick = () => {
                     sessionStorage.setItem(vKeyVisits, String(visits));
                 }
 
+                const isRemote = !!g.supabaseData;
+
                 const container = document.createElement('div');
                 container.style.display = 'flex';
-                container.style.alignItems = 'center';
-                container.style.gap = '12px';
-                container.style.padding = '8px';
-                container.style.background = '#fff';
-                container.style.border = '2px solid #ddd';
-                container.style.borderRadius = '6px';
+                container.style.alignItems = 'stretch';
+                container.style.gap = '0';
+                container.style.background = isRemote
+                    ? 'linear-gradient(135deg,#0d1b2a,#1a2a3a)'
+                    : '#fff';
+                container.style.border = isRemote ? '2px solid #00d4ff44' : '2px solid #ddd';
+                container.style.borderRadius = '10px';
+                container.style.overflow = 'hidden';
+                container.style.boxShadow = isRemote
+                    ? '0 4px 20px rgba(0,212,255,0.12)'
+                    : '0 2px 8px rgba(0,0,0,0.06)';
+                container.style.transition = 'transform 0.15s, box-shadow 0.15s';
+                container.addEventListener('mouseenter', () => {
+                    container.style.transform = 'translateY(-2px)';
+                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 18px rgba(0,0,0,0.12)';
+                });
+                container.addEventListener('mouseleave', () => {
+                    container.style.transform = '';
+                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 8px rgba(0,0,0,0.06)';
+                });
 
+                // Thumbnail
+                const thumbWrap = document.createElement('div');
+                thumbWrap.style.position = 'relative';
+                thumbWrap.style.flexShrink = '0';
                 const thumb = document.createElement('img');
                 thumb.src = g.thumb || '/null_plainsky512_ft.jpg';
-                thumb.style.width = '160px';
-                thumb.style.height = '96px';
+                thumb.style.width = '170px';
+                thumb.style.height = '108px';
                 thumb.style.objectFit = 'cover';
-                thumb.style.border = '1px solid #bbb';
-                container.appendChild(thumb);
+                thumb.style.display = 'block';
+                thumbWrap.appendChild(thumb);
+                // "ONLINE" badge for remote games
+                if (isRemote) {
+                    const badge = document.createElement('div');
+                    badge.textContent = 'FAUNDRY';
+                    badge.style.cssText = `
+                        position:absolute; top:6px; left:6px;
+                        background:linear-gradient(90deg,#00d4ff,#0066ff);
+                        color:#fff; font-size:9px; font-weight:bold;
+                        padding:2px 7px; border-radius:10px; letter-spacing:0.08em;
+                    `;
+                    thumbWrap.appendChild(badge);
+                }
+                container.appendChild(thumbWrap);
 
                 const meta = document.createElement('div');
                 meta.style.flex = '1';
                 meta.style.display = 'flex';
                 meta.style.flexDirection = 'column';
-                meta.style.gap = '6px';
+                meta.style.gap = '4px';
+                meta.style.padding = '10px 12px';
 
-                const titleRow = document.createElement('div');
-                titleRow.style.display = 'flex';
-                titleRow.style.justifyContent = 'space-between';
-                titleRow.style.alignItems = 'center';
-
+                // Title
                 const title = document.createElement('div');
                 title.style.fontWeight = 'bold';
-                title.style.fontSize = '18px';
-                title.textContent = g.name + (g.author ? ` — by ${g.author}` : '');
-                titleRow.appendChild(title);
+                title.style.fontSize = '16px';
+                title.style.color = isRemote ? '#e8f4fd' : '#111';
+                title.style.lineHeight = '1.2';
+                title.textContent = g.name;
+                meta.appendChild(title);
 
-                const stats = document.createElement('div');
-                stats.style.fontSize = '13px';
-                stats.style.color = '#666';
-                stats.style.display = 'flex';
-                stats.style.alignItems = 'center';
-                stats.style.gap = '8px';
+                // Creator row — prominently displayed
+                const creatorRow = document.createElement('div');
+                creatorRow.style.cssText = `
+                    display:flex; align-items:center; gap:5px;
+                    font-size:13px; color:${isRemote ? '#00d4ff' : '#0055aa'};
+                    font-weight:bold;
+                `;
+                creatorRow.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>`;
+                const creatorName = document.createElement('span');
+                creatorName.textContent = g.author || 'Unknown';
+                creatorRow.appendChild(creatorName);
+                meta.appendChild(creatorRow);
 
+                // Stats row
                 const visitsText = visits >= 1000 ? `${Math.round(visits/100)/10}K visits` : `${visits} visits`;
                 const up = stored.up || 0;
                 const down = stored.down || 0;
                 const percent = likePercentage({ up, down }) || 0;
 
-                const likeWrap = document.createElement('div');
-                likeWrap.style.display = 'flex';
-                likeWrap.style.alignItems = 'center';
-                likeWrap.style.gap = '6px';
-                likeWrap.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="#ff6b6b" xmlns="http://www.w3.org/2000/svg"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg><span style="font-weight:700;">${percent}%</span>`;
-                
-                const visitsEl = document.createElement('div');
-                visitsEl.textContent = visitsText;
-
-                stats.appendChild(visitsEl);
-                stats.appendChild(likeWrap);
-
-                titleRow.appendChild(stats);
-                meta.appendChild(titleRow);
+                const stats = document.createElement('div');
+                stats.style.cssText = `
+                    display:flex; align-items:center; gap:10px;
+                    font-size:12px; color:${isRemote ? '#88aacc' : '#666'};
+                    margin-top:2px;
+                `;
+                stats.innerHTML = `
+                    <span>${visitsText}</span>
+                    <span style="display:flex;align-items:center;gap:3px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
+                        <strong>${percent}%</strong>
+                    </span>
+                `;
+                meta.appendChild(stats);
 
                 const descRow = document.createElement('div');
                 descRow.style.display = 'flex';
                 descRow.style.justifyContent = 'space-between';
                 descRow.style.alignItems = 'center';
+                descRow.style.marginTop = 'auto';
+                descRow.style.paddingTop = '6px';
 
                 const playBtn = document.createElement('button');
                 playBtn.className = 'menu-btn';
                 playBtn.textContent = 'Play';
-                playBtn.style.width = '120px';
-                // For Firestore-published entries, use stored firestoreData.world if present as data payload, otherwise pass id
+                playBtn.style.cssText = `
+                    width:110px; padding:7px 0;
+                    background:${isRemote ? 'linear-gradient(135deg,#00d4ff,#0066ff)' : '#00cc44'};
+                    color:#fff; font-weight:bold; border:none; border-radius:6px;
+                    cursor:pointer; font-size:13px;
+                `;
+                // For Supabase-published entries, use world_data; otherwise fall back to local
                 playBtn.onclick = () => {
-                    if (g.firestoreData && g.firestoreData.world) {
+                    if (g.supabaseData && g.supabaseData.world_data) {
+                        pendingGameStart = { name: g.name, data: g.supabaseData.world_data };
+                        startGame(g.name, g.supabaseData.world_data);
+                        // Increment visits in background
+                        incrementVisit(g.id).catch(() => {});
+                    } else if (g.firestoreData && g.firestoreData.world) {
                         pendingGameStart = { name: g.name, data: g.firestoreData.world };
                         startGame(g.name, g.firestoreData.world);
                     } else {
@@ -3763,17 +3669,23 @@ document.getElementById('btn-play').onclick = () => {
                 const upBtn = document.createElement('button');
                 upBtn.className = 'menu-btn';
                 upBtn.textContent = `▲ ${stored.up}`;
-                upBtn.style.padding = '4px 8px';
+                upBtn.style.cssText = `padding:5px 10px; background:rgba(0,220,100,0.15); border:1px solid rgba(0,220,100,0.4); border-radius:6px; color:${isRemote ? '#00dc64' : '#006600'}; cursor:pointer; font-size:12px; font-weight:bold;`;
                 const downBtn = document.createElement('button');
                 downBtn.className = 'menu-btn';
                 downBtn.textContent = `▼ ${stored.down}`;
-                downBtn.style.padding = '4px 8px';
+                downBtn.style.cssText = `padding:5px 10px; background:rgba(255,80,80,0.1); border:1px solid rgba(255,80,80,0.3); border-radius:6px; color:${isRemote ? '#ff6666' : '#880000'}; cursor:pointer; font-size:12px; font-weight:bold;`;
 
                 const refreshVotes = () => {
                     upBtn.textContent = `▲ ${stored.up}`;
                     downBtn.textContent = `▼ ${stored.down}`;
                     const p = likePercentage({ up: stored.up, down: stored.down });
-                    stats.innerHTML = `${visitsText} • 👍 ${p}%`;
+                    stats.innerHTML = `
+                        <span>${visitsText}</span>
+                        <span style="display:flex;align-items:center;gap:3px;">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
+                            <strong>${p}%</strong>
+                        </span>
+                    `;
                 };
 
                 upBtn.addEventListener('click', () => {
