@@ -8,11 +8,7 @@ import { Player, createPlayerMesh } from './Player.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { InputManager } from './InputManager.js';
 import { boxUnwrapUVs, surfaceManager, createFaceTexture, createTorsoTexture } from './utils.js';
-<<<<<<< HEAD
 import { publishGame, fetchGames, incrementVisit, uploadThumbnail, saveAvatar, loadAvatar, fetchMarketplaceListings, createMarketplaceListing, uploadTshirtImage } from './supabase.js';
-=======
-import { publishGame, fetchGames, incrementVisit, uploadThumbnail } from './supabase.js';
->>>>>>> origin/creator-and-explore-games
 
 
 
@@ -3542,18 +3538,12 @@ document.getElementById('btn-play').onclick = () => {
                 container.style.gap = '0';
                 container.style.background = isRemote
                     ? 'linear-gradient(135deg,#0d1b2a,#1a2a3a)'
-<<<<<<< HEAD
                     : 'linear-gradient(135deg,#0e1028,#141830)';
                 container.style.border = isRemote ? '1.5px solid rgba(0,212,255,0.28)' : '1.5px solid rgba(80,100,160,0.22)';
-=======
-                    : '#fff';
-                container.style.border = isRemote ? '2px solid #00d4ff44' : '2px solid #ddd';
->>>>>>> origin/creator-and-explore-games
                 container.style.borderRadius = '10px';
                 container.style.overflow = 'hidden';
                 container.style.boxShadow = isRemote
                     ? '0 4px 20px rgba(0,212,255,0.12)'
-<<<<<<< HEAD
                     : '0 2px 10px rgba(0,0,0,0.4)';
                 container.style.transition = 'transform 0.15s, box-shadow 0.15s, border-color 0.15s';
                 container.addEventListener('mouseenter', () => {
@@ -3565,17 +3555,6 @@ document.getElementById('btn-play').onclick = () => {
                     container.style.transform = '';
                     container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 10px rgba(0,0,0,0.4)';
                     container.style.borderColor = isRemote ? 'rgba(0,212,255,0.28)' : 'rgba(80,100,160,0.22)';
-=======
-                    : '0 2px 8px rgba(0,0,0,0.06)';
-                container.style.transition = 'transform 0.15s, box-shadow 0.15s';
-                container.addEventListener('mouseenter', () => {
-                    container.style.transform = 'translateY(-2px)';
-                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 18px rgba(0,0,0,0.12)';
-                });
-                container.addEventListener('mouseleave', () => {
-                    container.style.transform = '';
-                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 8px rgba(0,0,0,0.06)';
->>>>>>> origin/creator-and-explore-games
                 });
 
                 // Thumbnail
@@ -3614,16 +3593,11 @@ document.getElementById('btn-play').onclick = () => {
                 const title = document.createElement('div');
                 title.style.fontWeight = 'bold';
                 title.style.fontSize = '16px';
-<<<<<<< HEAD
                 title.style.color = isRemote ? '#e8f4fd' : '#d8e0f8';
-=======
-                title.style.color = isRemote ? '#e8f4fd' : '#111';
->>>>>>> origin/creator-and-explore-games
                 title.style.lineHeight = '1.2';
                 title.textContent = g.name;
                 meta.appendChild(title);
 
-<<<<<<< HEAD
                 // Creator row — prominently displayed with clickable avatar
                 const creatorRow = document.createElement('div');
                 creatorRow.style.cssText = `
@@ -3684,30 +3658,12 @@ document.getElementById('btn-play').onclick = () => {
                 // Stats row
                 const visitsNum = visits >= 1000000 ? `${(visits/1000000).toFixed(1)}M` : visits >= 1000 ? `${Math.round(visits/100)/10}K` : `${visits}`;
                 const visitsText = `${visitsNum} visits`;
-=======
-                // Creator row — prominently displayed
-                const creatorRow = document.createElement('div');
-                creatorRow.style.cssText = `
-                    display:flex; align-items:center; gap:5px;
-                    font-size:13px; color:${isRemote ? '#00d4ff' : '#0055aa'};
-                    font-weight:bold;
-                `;
-                creatorRow.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>`;
-                const creatorName = document.createElement('span');
-                creatorName.textContent = g.author || 'Unknown';
-                creatorRow.appendChild(creatorName);
-                meta.appendChild(creatorRow);
-
-                // Stats row
-                const visitsText = visits >= 1000 ? `${Math.round(visits/100)/10}K visits` : `${visits} visits`;
->>>>>>> origin/creator-and-explore-games
                 const up = stored.up || 0;
                 const down = stored.down || 0;
                 const percent = likePercentage({ up, down }) || 0;
 
                 const stats = document.createElement('div');
                 stats.style.cssText = `
-<<<<<<< HEAD
                     display:flex; align-items:center; gap:8px;
                     font-size:12px; color:${isRemote ? '#88aacc' : '#7890b0'};
                     margin-top:3px; flex-wrap:wrap;
@@ -3719,16 +3675,6 @@ document.getElementById('btn-play').onclick = () => {
                     </span>
                     <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
-=======
-                    display:flex; align-items:center; gap:10px;
-                    font-size:12px; color:${isRemote ? '#88aacc' : '#666'};
-                    margin-top:2px;
-                `;
-                stats.innerHTML = `
-                    <span>${visitsText}</span>
-                    <span style="display:flex;align-items:center;gap:3px;">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
->>>>>>> origin/creator-and-explore-games
                         <strong>${percent}%</strong>
                     </span>
                 `;
@@ -3784,18 +3730,12 @@ document.getElementById('btn-play').onclick = () => {
                     downBtn.textContent = `▼ ${stored.down}`;
                     const p = likePercentage({ up: stored.up, down: stored.down });
                     stats.innerHTML = `
-<<<<<<< HEAD
                         <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                             ${visitsText}
                         </span>
                         <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
-=======
-                        <span>${visitsText}</span>
-                        <span style="display:flex;align-items:center;gap:3px;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
->>>>>>> origin/creator-and-explore-games
                             <strong>${p}%</strong>
                         </span>
                     `;
