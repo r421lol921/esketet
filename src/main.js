@@ -8,11 +8,7 @@ import { Player, createPlayerMesh } from './Player.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { InputManager } from './InputManager.js';
 import { boxUnwrapUVs, surfaceManager, createFaceTexture, createTorsoTexture } from './utils.js';
-<<<<<<< HEAD
 import { publishGame, fetchGames, incrementVisit, uploadThumbnail, saveAvatar, loadAvatar, fetchMarketplaceListings, createMarketplaceListing, uploadTshirtImage } from './supabase.js';
-=======
-import { publishGame, fetchGames, incrementVisit, uploadThumbnail } from './supabase.js';
->>>>>>> origin/creator-and-explore-games
 
 
 
@@ -31,41 +27,130 @@ import { publishGame, fetchGames, incrementVisit, uploadThumbnail } from './supa
 */
 
 /*
-  WebSocket-backed presence client to talk to the simple presence server (server.js).
-  Provides a minimal subset of the original room API used in the app:
-    - initialize(): opens WS and sends join
-    - updatePresence(obj): broadcasts presence_update to peers via server
-    - subscribePresence(cb): receives presence updates from peers
+  Supabase Realtime-backed multiplayer presence room.
+  Exposes the same minimal API the rest of the app already uses:
+    room.clientId          – stable random id for this session
+    room.presence          – map of { [clientId]: presenceObj }
+    room.initialize()      – subscribe to the default channel
+    room.updatePresence(p) – merge p into own presence and broadcast
+    room.subscribePresence(cb) – called on every presence change
+    room.send(obj)         – broadcast a message to peers (chat, etc.)
+    room.onmessage         – set to a function to receive messages
 */
 function generateClientId() {
-    // simple random id
     return 'c-' + Math.random().toString(36).slice(2, 10);
 }
 
 const room = (function () {
-    // Lightweight no-op presence stub to disable multiplayer features.
     const clientId = generateClientId();
-    const presence = {};
+    const presence = {};           // { [id]: presencePayload }
     const roomState = {};
     const peers = {};
+    const presenceSubscribers = [];
+    let _channel = null;           // active Supabase Realtime channel
+    let _currentRoom = 'global';
 
+    // --- helpers ---
+    function _notifyPresence() {
+        const snap = Object.assign({}, presence);
+        for (const cb of presenceSubscribers) {
+            try { cb(snap); } catch (e) {}
+        }
+    }
+
+    // --- public API ---
     async function initialize() {
-        // Resolve immediately; no network activity.
+        try {
+            const { getSupabase } = await import('./supabase.js');
+            const sb = await getSupabase();
+            await _joinChannel(sb, _currentRoom);
+        } catch (e) {
+            console.warn('[room] Supabase Realtime init failed (offline mode):', e);
+        }
         return Promise.resolve();
     }
 
+    async function _joinChannel(sb, roomName) {
+        // Leave old channel cleanly
+        if (_channel) {
+            try { await sb.removeChannel(_channel); } catch (e) {}
+            _channel = null;
+        }
+        _currentRoom = roomName;
+
+        const ch = sb.channel(`faundry:${roomName}`, {
+            config: { presence: { key: clientId } }
+        });
+
+        // Track own presence
+        ch.on('presence', { event: 'sync' }, () => {
+            const state = ch.presenceState();
+            // Clear non-self peers
+            for (const k in presence) {
+                if (k !== clientId) delete presence[k];
+            }
+            for (const key in state) {
+                const payloads = state[key];
+                if (payloads && payloads.length > 0) {
+                    presence[key] = payloads[0];
+                }
+            }
+            _notifyPresence();
+        });
+
+        ch.on('presence', { event: 'join' }, ({ key, newPresences }) => {
+            if (newPresences && newPresences.length > 0) {
+                presence[key] = newPresences[0];
+                _notifyPresence();
+            }
+        });
+
+        ch.on('presence', { event: 'leave' }, ({ key }) => {
+            delete presence[key];
+            _notifyPresence();
+        });
+
+        // Broadcast messages (chat, friend requests, etc.)
+        ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
+            if (payload && payload._from !== clientId) {
+                try {
+                    if (typeof room.onmessage === 'function') {
+                        // Normalize to match legacy evt shape: { clientId, data }
+                        room.onmessage({ clientId: payload._from, from: payload._from, data: payload });
+                    }
+                } catch (e) {}
+            }
+        });
+
+        await ch.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // Track own presence with current local data
+                const own = presence[clientId] || {};
+                await ch.track({ ...own, _clientId: clientId });
+            }
+        });
+
+        _channel = ch;
+    }
+
     function updatePresence(p) {
-        // Keep local presence object for UI usage but do not send anywhere.
-        presence[clientId] = { ...(presence[clientId] || {}), ...p };
+        presence[clientId] = { ...(presence[clientId] || {}), ...p, _clientId: clientId };
+        if (_channel) {
+            _channel.track(presence[clientId]).catch(() => {});
+        }
+        _notifyPresence();
     }
 
     function updateRoomState(s) { Object.assign(roomState, s); }
-
-    function requestPresenceUpdate() { /* no-op */ }
+    function requestPresenceUpdate() {}
 
     function subscribePresence(cb) {
+        presenceSubscribers.push(cb);
         try { cb(Object.assign({}, presence)); } catch (e) {}
-        return () => {};
+        return () => {
+            const i = presenceSubscribers.indexOf(cb);
+            if (i >= 0) presenceSubscribers.splice(i, 1);
+        };
     }
 
     function subscribeRoomState(cb) {
@@ -75,7 +160,28 @@ const room = (function () {
 
     function subscribePresenceUpdateRequests() { return () => {}; }
 
-    function send() { /* no-op */ }
+    function send(obj) {
+        if (_channel) {
+            _channel.send({
+                type: 'broadcast',
+                event: 'msg',
+                payload: { ...obj, _from: clientId }
+            }).catch(() => {});
+        }
+    }
+
+    // Public: switch to a named room channel and wait until subscribed.
+    // Call this BEFORE updatePresence so track() lands on the correct channel.
+    async function switchRoom(newRoomName) {
+        if (!newRoomName || newRoomName === _currentRoom) return;
+        try {
+            const { getSupabase } = await import('./supabase.js');
+            const sb = await getSupabase();
+            await _joinChannel(sb, newRoomName);
+        } catch (e) {
+            console.warn('[room] channel switch failed:', e);
+        }
+    }
 
     return {
         presence,
@@ -89,8 +195,9 @@ const room = (function () {
         subscribePresence,
         subscribeRoomState,
         subscribePresenceUpdateRequests,
+        switchRoom,
         send,
-        onmessage: () => {}
+        onmessage: null
     };
 })();
 
@@ -2907,7 +3014,7 @@ const openGameDetail = (title, mapName, mapData = null) => {
     try { updateGameDetailPlayerCount(); } catch(e){}
 };
 
-function startGame(mapName, mapData = null) {
+async function startGame(mapName, mapData = null) {
     playSwitch();
 
     // Create simple loading overlay like 2006 Roblox (reused/created)
@@ -3073,12 +3180,10 @@ function startGame(mapName, mapData = null) {
             }
         }, 100);
 
-        // Make server treat this client as joining the map-specific room so presence/chat only goes to players in this map.
+        // Switch to the game-specific Supabase Realtime channel FIRST,
+        // then broadcast presence so all players in this map see each other.
         try {
-            // Ask server to remove us from the default/global room (best-effort) then join the map room.
-            try { room.send({ type: 'leave', room: 'global', clientId: room.clientId }); } catch(e){}
-            try { room.send({ type: 'join', room: mapNameLocal, clientId: room.clientId }); } catch(e){}
-
+            await room.switchRoom(mapNameLocal);
             room.updatePresence({
                 username: document.getElementById('input-username').value || "Guest",
                 appearance: player.serializeAppearance(),
@@ -3088,7 +3193,7 @@ function startGame(mapName, mapData = null) {
                 animState: 'idle'
             });
         } catch (e) {
-            console.warn("Failed to send initial presence / join room:", e);
+            console.warn("Failed to join room / update presence:", e);
         }
 
         // If this is the puzzles game, present a simple puzzle UI (6 levels, increasing difficulty)
@@ -3519,63 +3624,25 @@ document.getElementById('btn-play').onclick = () => {
 
             rows.innerHTML = '';
             merged.forEach(g => {
-                const votesKey = `nblox_votes_${g.id}`;
-                let stored = null;
-                try { stored = JSON.parse(localStorage.getItem(votesKey) || 'null'); } catch(e){ stored = null; }
-                if (!stored) {
-                    stored = { up: g.up || 0, down: g.down || 0, user: null };
-                    try { localStorage.setItem(votesKey, JSON.stringify(stored)); } catch(e){}
-                }
-
-                const vKeyVisits = `nblox_visits_${g.id}`;
-                let visits = parseInt(sessionStorage.getItem(vKeyVisits) || '0', 10);
-                if (!visits) {
-                    visits = g.visits || (g.firestoreData && g.firestoreData.visits) || (1000 + Math.floor(Math.random() * 50000));
-                    sessionStorage.setItem(vKeyVisits, String(visits));
-                }
-
                 const isRemote = !!g.supabaseData;
 
                 const container = document.createElement('div');
                 container.style.display = 'flex';
                 container.style.alignItems = 'stretch';
                 container.style.gap = '0';
-                container.style.background = isRemote
-                    ? 'linear-gradient(135deg,#0d1b2a,#1a2a3a)'
-<<<<<<< HEAD
-                    : 'linear-gradient(135deg,#0e1028,#141830)';
-                container.style.border = isRemote ? '1.5px solid rgba(0,212,255,0.28)' : '1.5px solid rgba(80,100,160,0.22)';
-=======
-                    : '#fff';
-                container.style.border = isRemote ? '2px solid #00d4ff44' : '2px solid #ddd';
->>>>>>> origin/creator-and-explore-games
+                container.style.background = '#111316';
+                container.style.border = '1px solid rgba(255,255,255,0.07)';
                 container.style.borderRadius = '10px';
                 container.style.overflow = 'hidden';
-                container.style.boxShadow = isRemote
-                    ? '0 4px 20px rgba(0,212,255,0.12)'
-<<<<<<< HEAD
-                    : '0 2px 10px rgba(0,0,0,0.4)';
-                container.style.transition = 'transform 0.15s, box-shadow 0.15s, border-color 0.15s';
+                container.style.boxShadow = '0 2px 8px rgba(0,0,0,0.4)';
+                container.style.transition = 'background 0.12s, border-color 0.12s';
                 container.addEventListener('mouseenter', () => {
-                    container.style.transform = 'translateY(-2px)';
-                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 24px rgba(0,100,200,0.22)';
-                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.5)' : 'rgba(0,180,255,0.35)';
+                    container.style.background = '#181b1f';
+                    container.style.borderColor = 'rgba(255,255,255,0.13)';
                 });
                 container.addEventListener('mouseleave', () => {
-                    container.style.transform = '';
-                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 10px rgba(0,0,0,0.4)';
-                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.28)' : 'rgba(80,100,160,0.22)';
-=======
-                    : '0 2px 8px rgba(0,0,0,0.06)';
-                container.style.transition = 'transform 0.15s, box-shadow 0.15s';
-                container.addEventListener('mouseenter', () => {
-                    container.style.transform = 'translateY(-2px)';
-                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 18px rgba(0,0,0,0.12)';
-                });
-                container.addEventListener('mouseleave', () => {
-                    container.style.transform = '';
-                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 8px rgba(0,0,0,0.06)';
->>>>>>> origin/creator-and-explore-games
+                    container.style.background = '#111316';
+                    container.style.borderColor = 'rgba(255,255,255,0.07)';
                 });
 
                 // Thumbnail
@@ -3589,18 +3656,6 @@ document.getElementById('btn-play').onclick = () => {
                 thumb.style.objectFit = 'cover';
                 thumb.style.display = 'block';
                 thumbWrap.appendChild(thumb);
-                // "ONLINE" badge for remote games
-                if (isRemote) {
-                    const badge = document.createElement('div');
-                    badge.textContent = 'FAUNDRY';
-                    badge.style.cssText = `
-                        position:absolute; top:6px; left:6px;
-                        background:linear-gradient(90deg,#00d4ff,#0066ff);
-                        color:#fff; font-size:9px; font-weight:bold;
-                        padding:2px 7px; border-radius:10px; letter-spacing:0.08em;
-                    `;
-                    thumbWrap.appendChild(badge);
-                }
                 container.appendChild(thumbWrap);
 
                 const meta = document.createElement('div');
@@ -3612,127 +3667,23 @@ document.getElementById('btn-play').onclick = () => {
 
                 // Title
                 const title = document.createElement('div');
-                title.style.fontWeight = 'bold';
-                title.style.fontSize = '16px';
-<<<<<<< HEAD
-                title.style.color = isRemote ? '#e8f4fd' : '#d8e0f8';
-=======
-                title.style.color = isRemote ? '#e8f4fd' : '#111';
->>>>>>> origin/creator-and-explore-games
+                title.style.fontWeight = '600';
+                title.style.fontSize = '15px';
+                title.style.color = '#e6edf3';
                 title.style.lineHeight = '1.2';
                 title.textContent = g.name;
                 meta.appendChild(title);
 
-<<<<<<< HEAD
-                // Creator row — prominently displayed with clickable avatar
+                // Creator row — plain author name, no avatar, no profile click
                 const creatorRow = document.createElement('div');
                 creatorRow.style.cssText = `
-                    display:flex; align-items:center; gap:7px;
-                    font-size:13px; color:${isRemote ? '#00d4ff' : '#5bc8ff'};
-                    font-weight:bold; cursor:pointer;
+                    font-size:12px; color:#8b949e;
+                    font-weight:500; margin-top:2px;
                 `;
-                creatorRow.title = `View ${g.author || 'Unknown'}'s profile`;
-
-                // Mini avatar icon (uses stored colors or default)
-                const avatarCanvas = document.createElement('canvas');
-                avatarCanvas.width = 28;
-                avatarCanvas.height = 36;
-                avatarCanvas.style.cssText = `
-                    border-radius:3px; border:1.5px solid ${isRemote ? '#00d4ff66' : '#0055aa44'};
-                    background:#ddd; flex-shrink:0; cursor:pointer;
-                `;
-                // Draw mini avatar from stored colors (try localStorage first, fall back to defaults)
-                (() => {
-                    const ctx = avatarCanvas.getContext('2d');
-                    let colors = { head:'#ffffff', torso:'#800080', larm:'#ffffff', rarm:'#ffffff', lleg:'#ffffff', rleg:'#ffffff' };
-                    try {
-                        const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${g.author}`) || 'null');
-                        if (stored) colors = stored;
-                    } catch(e){}
-                    const W = 28, H = 36;
-                    // head
-                    ctx.fillStyle = colors.head;
-                    ctx.fillRect(8,1,12,10);
-                    // torso
-                    ctx.fillStyle = colors.torso;
-                    ctx.fillRect(6,12,16,12);
-                    // arms
-                    ctx.fillStyle = colors.larm;
-                    ctx.fillRect(1,12,5,10);
-                    ctx.fillStyle = colors.rarm;
-                    ctx.fillRect(22,12,5,10);
-                    // legs
-                    ctx.fillStyle = colors.lleg;
-                    ctx.fillRect(6,25,6,10);
-                    ctx.fillStyle = colors.rleg;
-                    ctx.fillRect(16,25,6,10);
-                })();
-
-                creatorRow.appendChild(avatarCanvas);
                 const creatorName = document.createElement('span');
-                creatorName.textContent = g.author || 'Unknown';
-                creatorRow.appendChild(creatorName);
-
-                // Click to open profile modal
-                creatorRow.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    openProfileModal(g.author || 'Unknown', g.visits || visits);
-                });
-
-                meta.appendChild(creatorRow);
-
-                // Stats row
-                const visitsNum = visits >= 1000000 ? `${(visits/1000000).toFixed(1)}M` : visits >= 1000 ? `${Math.round(visits/100)/10}K` : `${visits}`;
-                const visitsText = `${visitsNum} visits`;
-=======
-                // Creator row — prominently displayed
-                const creatorRow = document.createElement('div');
-                creatorRow.style.cssText = `
-                    display:flex; align-items:center; gap:5px;
-                    font-size:13px; color:${isRemote ? '#00d4ff' : '#0055aa'};
-                    font-weight:bold;
-                `;
-                creatorRow.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>`;
-                const creatorName = document.createElement('span');
-                creatorName.textContent = g.author || 'Unknown';
+                creatorName.textContent = `by ${g.author || 'Unknown'}`;
                 creatorRow.appendChild(creatorName);
                 meta.appendChild(creatorRow);
-
-                // Stats row
-                const visitsText = visits >= 1000 ? `${Math.round(visits/100)/10}K visits` : `${visits} visits`;
->>>>>>> origin/creator-and-explore-games
-                const up = stored.up || 0;
-                const down = stored.down || 0;
-                const percent = likePercentage({ up, down }) || 0;
-
-                const stats = document.createElement('div');
-                stats.style.cssText = `
-<<<<<<< HEAD
-                    display:flex; align-items:center; gap:8px;
-                    font-size:12px; color:${isRemote ? '#88aacc' : '#7890b0'};
-                    margin-top:3px; flex-wrap:wrap;
-                `;
-                stats.innerHTML = `
-                    <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                        ${visitsText}
-                    </span>
-                    <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
-=======
-                    display:flex; align-items:center; gap:10px;
-                    font-size:12px; color:${isRemote ? '#88aacc' : '#666'};
-                    margin-top:2px;
-                `;
-                stats.innerHTML = `
-                    <span>${visitsText}</span>
-                    <span style="display:flex;align-items:center;gap:3px;">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
->>>>>>> origin/creator-and-explore-games
-                        <strong>${percent}%</strong>
-                    </span>
-                `;
-                meta.appendChild(stats);
 
                 const descRow = document.createElement('div');
                 descRow.style.display = 'flex';
@@ -3744,12 +3695,7 @@ document.getElementById('btn-play').onclick = () => {
                 const playBtn = document.createElement('button');
                 playBtn.className = 'menu-btn';
                 playBtn.textContent = 'Play';
-                playBtn.style.cssText = `
-                    width:110px; padding:7px 0;
-                    background:${isRemote ? 'linear-gradient(135deg,#00d4ff,#0066ff)' : '#00cc44'};
-                    color:#fff; font-weight:bold; border:none; border-radius:6px;
-                    cursor:pointer; font-size:13px;
-                `;
+                playBtn.style.cssText = `width:80px; padding:6px 0; font-weight:600; font-size:13px;`;
                 // For Supabase-published entries, use world_data; otherwise fall back to local
                 playBtn.onclick = () => {
                     if (g.supabaseData && g.supabaseData.world_data) {
@@ -3765,75 +3711,42 @@ document.getElementById('btn-play').onclick = () => {
                     }
                 };
 
-                const voteWrap = document.createElement('div');
-                voteWrap.style.display = 'flex';
-                voteWrap.style.alignItems = 'center';
-                voteWrap.style.gap = '6px';
+                // Live player online count for this game
+                const onlineEl = document.createElement('div');
+                onlineEl.style.cssText = `
+                    font-size:12px; color:#8b949e; display:flex; align-items:center; gap:4px;
+                `;
+                const dot = document.createElement('span');
+                dot.style.cssText = `
+                    display:inline-block; width:7px; height:7px; border-radius:50%;
+                    background:#3fb950;
+                `;
+                const onlineText = document.createElement('span');
 
-                const upBtn = document.createElement('button');
-                upBtn.className = 'menu-btn';
-                upBtn.textContent = `▲ ${stored.up}`;
-                upBtn.style.cssText = `padding:5px 10px; background:rgba(0,220,100,0.15); border:1px solid rgba(0,220,100,0.4); border-radius:6px; color:${isRemote ? '#00dc64' : '#006600'}; cursor:pointer; font-size:12px; font-weight:bold;`;
-                const downBtn = document.createElement('button');
-                downBtn.className = 'menu-btn';
-                downBtn.textContent = `▼ ${stored.down}`;
-                downBtn.style.cssText = `padding:5px 10px; background:rgba(255,80,80,0.1); border:1px solid rgba(255,80,80,0.3); border-radius:6px; color:${isRemote ? '#ff6666' : '#880000'}; cursor:pointer; font-size:12px; font-weight:bold;`;
-
-                const refreshVotes = () => {
-                    upBtn.textContent = `▲ ${stored.up}`;
-                    downBtn.textContent = `▼ ${stored.down}`;
-                    const p = likePercentage({ up: stored.up, down: stored.down });
-                    stats.innerHTML = `
-<<<<<<< HEAD
-                        <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-                            ${visitsText}
-                        </span>
-                        <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
-=======
-                        <span>${visitsText}</span>
-                        <span style="display:flex;align-items:center;gap:3px;">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
->>>>>>> origin/creator-and-explore-games
-                            <strong>${p}%</strong>
-                        </span>
-                    `;
+                // Count presences in this map
+                const countOnlineForGame = () => {
+                    let n = 0;
+                    const pres = room.presence || {};
+                    for (const id in pres) {
+                        if (pres[id] && pres[id].map === g.name) n++;
+                    }
+                    return n;
                 };
 
-                upBtn.addEventListener('click', () => {
-                    playSwitch();
-                    if (stored.user === 'up') {
-                        stored.up = Math.max(0, stored.up - 1);
-                        stored.user = null;
-                    } else {
-                        if (stored.user === 'down') stored.down = Math.max(0, stored.down - 1);
-                        stored.up += 1;
-                        stored.user = 'up';
-                    }
-                    localStorage.setItem(votesKey, JSON.stringify(stored));
-                    refreshVotes();
-                });
+                const updateOnline = () => {
+                    const n = countOnlineForGame();
+                    onlineText.textContent = n > 0 ? `${n} online` : '';
+                    dot.style.display = n > 0 ? 'inline-block' : 'none';
+                };
+                updateOnline();
+                // Re-check online count whenever presence changes
+                room.subscribePresence(() => updateOnline());
 
-                downBtn.addEventListener('click', () => {
-                    playSwitch();
-                    if (stored.user === 'down') {
-                        stored.down = Math.max(0, stored.down - 1);
-                        stored.user = null;
-                    } else {
-                        if (stored.user === 'up') stored.up = Math.max(0, stored.up - 1);
-                        stored.down += 1;
-                        stored.user = 'down';
-                    }
-                    localStorage.setItem(votesKey, JSON.stringify(stored));
-                    refreshVotes();
-                });
-
-                voteWrap.appendChild(upBtn);
-                voteWrap.appendChild(downBtn);
+                onlineEl.appendChild(dot);
+                onlineEl.appendChild(onlineText);
 
                 descRow.appendChild(playBtn);
-                descRow.appendChild(voteWrap);
+                descRow.appendChild(onlineEl);
 
                 meta.appendChild(descRow);
                 container.appendChild(meta);
@@ -4852,8 +4765,7 @@ function doExitToMenu() {
     // Notify presence/server: rejoin global room and mark as in MENU
     try {
         // Tell server we're leaving the map room and rejoining the global room
-        try { room.send({ type: 'leave', room: currentMapName || 'unknown', clientId: room.clientId }); } catch(e){}
-        try { room.send({ type: 'join', room: 'global', clientId: room.clientId }); } catch(e){}
+        try { room.switchRoom('global').then(() => { room.updatePresence({ map: 'MENU' }); }).catch(() => {}); } catch(e){}
         room.updatePresence({ map: 'MENU' });
     } catch(e){ console.warn('Failed to update presence on exit', e); }
 
@@ -6062,6 +5974,97 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
 }
 
 // ===== PROFILE MODAL =====
+// Draws a full-body blocky character on a canvas element, using body-part color map.
+function drawBlockyCharacter(canvas, colors) {
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    // Scale factor so we can work in a fixed 60x80 design space
+    const sx = W / 60, sy = H / 80;
+    function rect(x, y, w, h, color, shade) {
+        // Main face
+        ctx.fillStyle = color;
+        ctx.fillRect(x * sx, y * sy, w * sx, h * sy);
+        // Right-side shadow for 3D illusion
+        if (shade) {
+            ctx.fillStyle = shadeColor(color, -28);
+            ctx.fillRect((x + w - 3) * sx, y * sy, 3 * sx, h * sy);
+            // Bottom shadow
+            ctx.fillStyle = shadeColor(color, -18);
+            ctx.fillRect(x * sx, (y + h - 2) * sy, w * sx, 2 * sy);
+            // Top highlight
+            ctx.fillStyle = shadeColor(color, 22);
+            ctx.fillRect(x * sx, y * sy, w * sx, 2 * sy);
+        }
+        // Outline
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x * sx + 0.4, y * sy + 0.4, w * sx - 0.8, h * sy - 0.8);
+    }
+
+    function shadeColor(hex, amount) {
+        try {
+            let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+            r = Math.max(0,Math.min(255,r+amount));
+            g = Math.max(0,Math.min(255,g+amount));
+            b = Math.max(0,Math.min(255,b+amount));
+            return `rgb(${r},${g},${b})`;
+        } catch(e) { return hex; }
+    }
+
+    const c = {
+        head:  colors.head  || '#f5cba7',
+        torso: colors.torso || '#3b5998',
+        larm:  colors.larm  || '#f5cba7',
+        rarm:  colors.rarm  || '#f5cba7',
+        lleg:  colors.lleg  || '#1a237e',
+        rleg:  colors.rleg  || '#1a237e',
+    };
+
+    // Left arm (behind torso)
+    rect(2, 28, 11, 22, c.larm, true);
+    // Right arm (behind torso)
+    rect(47, 28, 11, 22, c.rarm, true);
+    // Left leg
+    rect(13, 52, 13, 25, c.lleg, true);
+    // Right leg
+    rect(34, 52, 13, 25, c.rleg, true);
+    // Torso
+    rect(13, 28, 34, 24, c.torso, true);
+    // Head
+    rect(15, 4, 30, 26, c.head, true);
+    // Neck connector
+    ctx.fillStyle = shadeColor(c.head, -10);
+    ctx.fillRect(24 * sx, 28 * sy, 12 * sx, 2 * sy);
+
+    // Eyes (white sclera + dark pupils)
+    // Left eye
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(19 * sx, 12 * sy, 8 * sx, 8 * sy);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(21 * sx, 14 * sy, 5 * sx, 5 * sy);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(24 * sx, 14 * sy, 2 * sx, 2 * sy); // highlight
+    // Right eye
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(33 * sx, 12 * sy, 8 * sx, 8 * sy);
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(35 * sx, 14 * sy, 5 * sx, 5 * sy);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(38 * sx, 14 * sy, 2 * sx, 2 * sy); // highlight
+
+    // Smile
+    ctx.fillStyle = shadeColor(c.head, -50);
+    ctx.fillRect(21 * sx, 24 * sy, 18 * sx, 2 * sy);
+    ctx.fillRect(19 * sx, 22 * sy, 2 * sx, 2 * sy);
+    ctx.fillRect(39 * sx, 22 * sy, 2 * sx, 2 * sy);
+
+    // Torso button strip
+    ctx.fillStyle = shadeColor(c.torso, -40);
+    ctx.fillRect(28 * sx, 30 * sy, 4 * sx, 18 * sy);
+}
+
 function openProfileModal(username, totalVisits) {
     const modal = document.getElementById('profile-modal');
     if (!modal) return;
@@ -6087,26 +6090,12 @@ function openProfileModal(username, totalVisits) {
     // Draw avatar on canvas using stored colors
     const canvas = document.getElementById('profile-avatar-canvas');
     if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, 100, 130);
-        let colors = { head:'#f5cba7', torso:'#800080', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#333', rleg:'#333' };
+        let colors = { head:'#f5cba7', torso:'#3b5998', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#1a237e', rleg:'#1a237e' };
         try {
             const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${username}`) || 'null');
             if (stored) colors = { ...colors, ...stored };
         } catch(e){}
-        // Draw body parts
-        ctx.fillStyle = colors.head; ctx.fillRect(30, 4, 40, 36);
-        ctx.fillStyle = colors.torso; ctx.fillRect(22, 42, 56, 44);
-        ctx.fillStyle = colors.larm; ctx.fillRect(4, 42, 18, 36);
-        ctx.fillStyle = colors.rarm; ctx.fillRect(78, 42, 18, 36);
-        ctx.fillStyle = colors.lleg; ctx.fillRect(22, 88, 24, 38);
-        ctx.fillStyle = colors.rleg; ctx.fillRect(54, 88, 24, 38);
-        // Eyes
-        ctx.fillStyle = '#000';
-        ctx.fillRect(38, 16, 7, 7);
-        ctx.fillRect(55, 16, 7, 7);
-        // Mouth
-        ctx.fillRect(40, 30, 20, 3);
+        drawBlockyCharacter(canvas, colors);
     }
 
     modal.style.display = 'flex';
@@ -6115,19 +6104,7 @@ function openProfileModal(username, totalVisits) {
         try {
             const profile = await loadAvatar(username);
             if (profile && profile.colors && canvas) {
-                const ctx = canvas.getContext('2d');
-                const c = profile.colors;
-                ctx.clearRect(0, 0, 100, 130);
-                ctx.fillStyle = c.head || '#f5cba7'; ctx.fillRect(30, 4, 40, 36);
-                ctx.fillStyle = c.torso || '#800080'; ctx.fillRect(22, 42, 56, 44);
-                ctx.fillStyle = c.larm || '#f5cba7'; ctx.fillRect(4, 42, 18, 36);
-                ctx.fillStyle = c.rarm || '#f5cba7'; ctx.fillRect(78, 42, 18, 36);
-                ctx.fillStyle = c.lleg || '#333'; ctx.fillRect(22, 88, 24, 38);
-                ctx.fillStyle = c.rleg || '#333'; ctx.fillRect(54, 88, 24, 38);
-                ctx.fillStyle = '#000';
-                ctx.fillRect(38, 16, 7, 7);
-                ctx.fillRect(55, 16, 7, 7);
-                ctx.fillRect(40, 30, 20, 3);
+                drawBlockyCharacter(canvas, profile.colors);
             }
         } catch (e) {}
     })();

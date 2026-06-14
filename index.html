@@ -17,15 +17,19 @@
     <!-- Provide an explicit favicon to avoid browser 404 requests for /favicon.ico -->
     <link rel="icon" href="/2026_06_13_12k_Kleki.png" type="image/png">
     <link rel="apple-touch-icon" href="/2026_06_13_12k_Kleki.png">
+    <!-- Google Fonts: Inter for UI, Nunito for headings -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
     <style>
         @font-face {
             font-family: 'Comic Sans Custom';
             src: url('/Comic Sans MS.ttf') format('truetype');
         }
 
-        /* Force Comic Sans EVERYWHERE with extreme prejudice */
+        /* Clean Inter-based UI font replacing Comic Sans */
         * {
-            font-family: "Comic Sans Custom", "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", cursive, sans-serif !important;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
         }
 
         html, body { height: 100%; }
@@ -37,9 +41,9 @@
                         #07071a;
             cursor: default;
         }
-        /* Ensure Comic Sans everywhere */
+        /* Ensure Inter everywhere */
         button, input, select, textarea, div, span, label, h1, h2, h3, h4, h5, h6, p, a {
-            font-family: "Comic Sans Custom", "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", cursive, sans-serif !important;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
         }
 
         /* Blurred decorative heart overlay used by launcher & explore panes */
@@ -78,13 +82,13 @@
             --fd-title-grad: linear-gradient(135deg, #0a1535 0%, #0d1f50 60%, #091528 100%);
         }
         .xp-window, .menu-popup, .sidebar {
-            background-color: var(--fd-bg-panel) !important;
-            border: 1.5px solid var(--fd-border) !important;
+            background-color: #0d1117 !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
             box-shadow:
-                0 8px 32px rgba(0, 0, 0, 0.7),
-                0 0 0 1px rgba(0, 180, 255, 0.06) inset !important;
-            border-radius: 12px !important;
-            color: var(--fd-text) !important;
+                0 24px 64px rgba(0, 0, 0, 0.8),
+                0 0 0 1px rgba(255,255,255,0.04) inset !important;
+            border-radius: 14px !important;
+            color: #e6edf3 !important;
             padding: 3px !important;
             display: flex;
             flex-direction: column;
@@ -100,7 +104,7 @@
             z-index: 99999;
             display: none;
             pointer-events: auto;
-            font-family: "Comic Sans Custom", "Comic Sans MS", "Comic Sans", cursive, sans-serif !important;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
             min-width: 150px;
             min-height: 100px;
         }
@@ -110,31 +114,31 @@
         }
 
         .xp-title-bar {
-            background: var(--fd-title-grad) !important;
-            padding: 6px 12px;
-            color: var(--fd-cyan) !important;
-            font-weight: bold;
+            background: rgba(8, 14, 36, 0.95) !important;
+            padding: 10px 14px;
+            color: #ffffff !important;
+            font-weight: 700;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-radius: 10px 10px 0 0;
             font-size: 13px;
-            min-height: 28px;
+            min-height: 30px;
             margin: -3px -3px 4px -3px;
-            font-family: "Comic Sans Custom", "Comic Sans MS", cursive, sans-serif !important;
+            font-family: 'Inter', sans-serif !important;
             user-select: none;
             cursor: default;
-            text-shadow: 0 0 12px rgba(0, 212, 255, 0.35) !important;
             letter-spacing: 0.04em;
-            border-bottom: 1px solid rgba(0, 180, 255, 0.2) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.08) !important;
         }
         .xp-btn-close {
-            width: 18px; height: 18px;
-            background: rgba(255, 60, 60, 0.15);
-            border: 1px solid rgba(255, 80, 80, 0.4);
-            border-radius: 4px;
-            color: #ff8080;
+            width: 22px; height: 22px;
+            background: #e53935;
+            border: none !important;
+            border-radius: 50% !important;
+            color: #fff;
             font-size: 10px;
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -142,15 +146,16 @@
             margin-left: 5px;
             padding: 0;
             min-width: 0 !important;
-            transition: background 0.12s, color 0.12s;
+            transition: background 0.12s, transform 0.1s;
+            box-shadow: none !important;
         }
         .xp-btn-close:hover {
-            background: rgba(255, 60, 60, 0.5);
-            color: #fff;
-            border-color: rgba(255,80,80,0.7);
+            background: #f44336;
+            transform: scale(1.1);
         }
         .xp-btn-close:active {
-            background: rgba(200, 30, 30, 0.6);
+            background: #b71c1c;
+            transform: scale(0.95);
         }
 
         .xp-body {
@@ -166,30 +171,29 @@
             box-sizing: border-box;
             overflow-y: auto;
         }
-        /* Faundry button styles — dark neon gaming */
+        /* Button styles — dark grey minimal */
         .xp-button, .menu-btn, .hud-btn, #dev-menu button, #btn-cust-done {
-            background: rgba(0, 140, 220, 0.1) !important;
-            border: 1.5px solid rgba(0, 180, 255, 0.3) !important;
-            color: #8cceff !important;
+            background: #1e1e1e !important;
+            border: 1px solid rgba(255,255,255,0.08) !important;
+            color: #e6edf3 !important;
             border-radius: 8px !important;
             cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,180,255,0.05) inset !important;
-            font-weight: bold;
+            box-shadow: none !important;
+            font-weight: 600;
             text-align: center;
-            transition: background 0.14s ease-out, box-shadow 0.14s ease-out, border-color 0.14s, color 0.14s, transform 0.1s !important;
-            letter-spacing: 0.02em;
+            transition: background 0.1s, border-color 0.1s !important;
+            letter-spacing: 0.01em;
+            font-size: 14px;
         }
         .xp-button:hover, .menu-btn:hover, .hud-btn:hover, #dev-menu button:hover, #btn-cust-done:hover {
-            background: rgba(0, 212, 255, 0.18) !important;
-            border-color: rgba(0, 212, 255, 0.6) !important;
-            color: #00d4ff !important;
-            box-shadow: 0 0 18px rgba(0,212,255,0.28), 0 4px 12px rgba(0,0,0,0.4) !important;
-            transform: translateY(-1px);
+            background: #2a2a2a !important;
+            border-color: rgba(255,255,255,0.15) !important;
+            transform: none !important;
         }
         .xp-button:active, .menu-btn:active, .hud-btn:active, #dev-menu button:active, #btn-cust-done:active {
-            background: rgba(0, 150, 200, 0.22) !important;
-            box-shadow: 0 0 8px rgba(0,180,255,0.2) !important;
-            transform: translate(0, 1px);
+            background: #141414 !important;
+            border-color: rgba(255,255,255,0.06) !important;
+            transform: none !important;
         }
         
         #dev-menu {
@@ -355,22 +359,25 @@
 
         .menu-title {
             font-size: 72px;
-            font-weight: bold;
+            font-weight: 900;
+            font-family: 'Nunito', 'Inter', sans-serif !important;
             margin-bottom: 20px;
-            color: var(--fd-cyan);
-            text-shadow: 0 0 28px rgba(0,212,255,0.4), 0 2px 0 rgba(0,0,0,0.5);
+            color: #ffffff;
+            text-shadow: 0 2px 20px rgba(0,180,255,0.3), 0 4px 0 rgba(0,0,0,0.5);
             pointer-events: auto;
             -webkit-text-stroke: 0;
+            letter-spacing: -0.02em;
         }
 
         .menu-btn {
             display: block;
             width: 280px;
-            padding: 10px 8px;
+            padding: 11px 8px;
             margin: 7px 0;
-            font-size: 18px;
+            font-size: 15px;
             text-align: center;
             letter-spacing: 0.04em;
+            font-weight: 700;
         }
 
         /* HUD Buttons */
@@ -541,7 +548,7 @@
             pointer-events: none;
             display: none;
             flex-direction: column;
-            font-family: "Comic Sans Custom", "Comic Sans MS", cursive, sans-serif !important;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif !important;
         }
         
         #studio-ribbon {
@@ -779,7 +786,7 @@
     <div id="start-menu" class="menu-overlay">
     <!-- Blurred heart overlay placed on the Chirpless Launcher container (covers the whole launcher background) -->
     <img src="/heartdeco.png" class="theme-heart-overlay" alt="decor" />
-        <div class="menu-popup" style="width: 380px; height: 100vh; max-width: none; top: 0; left: 0; transform: none; z-index: 10001; padding: 18px; box-sizing: border-box; position: fixed; overflow: auto; background: linear-gradient(180deg, rgba(8,10,28,0.99) 0%, rgba(10,14,36,0.99) 60%, rgba(8,12,30,0.99) 100%); border-right: 1px solid rgba(0,180,255,0.15); backdrop-filter: blur(4px);">
+        <div class="menu-popup" style="width: 380px; height: 100vh; max-width: none; top: 0; left: 0; transform: none; z-index: 10001; padding: 18px; box-sizing: border-box; position: fixed; overflow: auto; background: #0d1117; border-right: 1px solid rgba(255,255,255,0.07); border-radius: 0 !important;">
             <!-- Blurred heart background (decorative) -->
             <div class="xp-title-bar" style="position: relative; z-index: 2;">
                 <span style="display:flex;align-items:center;gap:7px;">
@@ -790,9 +797,9 @@
             </div>
             <div class="xp-body" style="position: relative; z-index: 2;">
                 <div class="menu-title" style="font-size: 64px; position: relative; width:100%; display:flex; align-items:center; justify-content:center; flex-direction:column;">
-                    <img src="/2026_06_13_12k_Kleki.png" style="width:52px; height:52px; object-fit:contain; border-radius:10px; margin-bottom:6px; border:2px solid rgba(0,212,255,0.35); box-shadow: 0 0 18px rgba(0,212,255,0.25);" alt="Faundry logo">
-                    <span style="font-weight:bold; font-size:28px; color:#00d4ff; font-style:italic; display:block; text-align:center; letter-spacing:0.02em; text-shadow: 0 0 24px rgba(0,212,255,0.4);">Faundry.buzz</span>
-                    <span style="font-size:11px; color:#7890b0; margin-top:3px; display:block; text-align:center; font-style:normal; letter-spacing:0.06em;">Build. Play. Explore. — v19.8</span>
+                    <img src="/2026_06_13_12k_Kleki.png" style="width:56px; height:56px; object-fit:contain; border-radius:12px; margin-bottom:8px; border:2px solid rgba(255,255,255,0.12); box-shadow: 0 4px 20px rgba(0,0,0,0.5);" alt="Faundry logo">
+                    <span style="font-family:'Nunito',sans-serif !important; font-weight:900; font-size:26px; color:#ffffff; font-style:normal; display:block; text-align:center; letter-spacing:-0.01em;">Faundry.buzz</span>
+                    <span style="font-size:11px; color:#8b949e; margin-top:4px; display:block; text-align:center; font-style:normal; letter-spacing:0.06em; font-weight:500;">Build. Play. Explore. — v19.8</span>
                 </div>
 
                 <!-- Player preview removed (clean launcher) -->
@@ -811,19 +818,19 @@
                     </div>
                     <div id="name-limit-msg" style="font-size: 10px; color: red; margin-top: 2px;"></div>
                 </div>
-                <button id="btn-play" class="menu-btn" style="background:rgba(0,212,255,0.14) !important; border-color:rgba(0,212,255,0.45) !important; color:#00d4ff !important; font-size:16px; letter-spacing:0.06em; box-shadow:0 0 14px rgba(0,212,255,0.2) !important;">EXPLORE</button>
+                <button id="btn-play" class="menu-btn" style="font-size:15px; letter-spacing:0.06em; font-weight:700;">EXPLORE</button>
                 <button id="btn-studio" class="menu-btn" style="display:none;">ROBLOX Studio</button>
 
                 <!-- CUSTOMIZE CHARACTER moved into Explore tabs -->
-                <button id="btn-creator" class="menu-btn" style="background:rgba(160,80,255,0.1) !important; border-color:rgba(160,80,255,0.35) !important; color:#c880ff !important;">CREATOR</button>
-                <button id="btn-marketplace" class="menu-btn" style="background: rgba(245,166,35,0.1) !important; border-color: rgba(245,166,35,0.4) !important; color: #f5a623 !important; box-shadow: 0 0 12px rgba(245,166,35,0.15) !important;">MARKETPLACE</button>
+                <button id="btn-creator" class="menu-btn" style="font-weight:700;">CREATOR</button>
+                <button id="btn-marketplace" class="menu-btn" style="font-weight:700;">MARKETPLACE</button>
                 <div style="display:flex; gap:8px; align-items:center; margin-top:6px; width:100%; justify-content:center; position:relative;">
                     <div style="font-weight:bold; color:#d8e0f8; font-size:14px; background:rgba(245,166,35,0.1); padding:5px 14px; border-radius:12px; border:1px solid rgba(245,166,35,0.3); display:flex; align-items:center; gap:6px;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                         Points: <span id="points-display" style="color:#f5a623; font-size:16px;">0</span>
                     </div>
                 </div>
-                <button id="btn-toggle-mobile" class="menu-btn" style="background: #00aaff; color: white;">TOGGLE MOBILE MODE</button>
+                <button id="btn-toggle-mobile" class="menu-btn">TOGGLE MOBILE MODE</button>
                 <!-- Catalog (2006 themed) -->
 
             </div>
@@ -849,7 +856,7 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; width: 100%; justify-content: center; margin-top: 15px;">
-                    <button id="btn-gd-play" class="menu-btn" style="width: 150px; background: rgba(0,200,80,0.15) !important; color: #00e870 !important; font-weight: bold; border-color: rgba(0,200,80,0.4) !important; text-shadow: 0 0 8px rgba(0,220,80,0.3);">PLAY</button>
+                    <button id="btn-gd-play" class="menu-btn" style="width: 150px; font-weight: 700;">PLAY</button>
                     <button id="btn-gd-back" class="menu-btn" style="width: 100px;">Cancel</button>
                 </div>
 
@@ -870,15 +877,15 @@
     </div>
 
     <div id="play-menu" class="menu-overlay" style="display: none;">
-        <div class="menu-popup" style="width: 100%; max-width: none; height: 100vh; top: 0; left: 0; transform: none !important; padding: 18px; box-sizing: border-box; overflow: auto; position: fixed;">
+        <div class="menu-popup" style="width: 100%; max-width: none; height: 100vh; top: 0; left: 0; transform: none !important; padding: 18px; box-sizing: border-box; overflow: auto; position: fixed; border-radius: 0 !important;">
             <!-- Blurred heart background (decorative) -->
             <img src="/heartdeco.png" class="theme-heart-overlay" alt="decor" />
             <div class="xp-title-bar" style="position: relative; z-index: 2;">
                 <span>Select World</span>
                 <button id="btn-close-play" class="xp-btn-close">X</button>
             </div>
-            <div class="xp-body" style="height: calc(100% - 52px); overflow: auto; position: relative; z-index: 2; background: rgba(6,8,22,0.98) !important;">
-                <div class="menu-title" style="font-size: 42px;">Games</div>
+                <div class="xp-body" style="height: calc(100% - 52px); overflow: auto; position: relative; z-index: 2; background: #0d1117 !important;">
+                <div class="menu-title" style="font-size: 38px; font-family:'Nunito',sans-serif !important; font-weight:900; letter-spacing:-0.01em;">Games</div>
                 <div id="world-list" style="width:100%; height: calc(100% - 150px); overflow-y: auto; display:flex; flex-direction:column; gap:10px; padding: 10px;">
                     <button id="btn-world-default" class="menu-btn" style="width:100%;">Hub</button>
                 </div>
@@ -987,7 +994,7 @@
                     <button id="btn-new-thread" class="menu-btn" style="width: auto; padding: 2px 8px; font-size: 12px; margin: 0;">New Thread</button>
                 </div>
                 
-                <div id="forum-content" style="flex: 1; width: 100%; overflow-y: auto; background: white; padding: 5px; box-sizing: border-box; font-family: 'Comic Sans MS', sans-serif;">
+                <div id="forum-content" style="flex: 1; width: 100%; overflow-y: auto; background: #0d1117; color: #e6edf3; padding: 5px; box-sizing: border-box; font-family: 'Inter', sans-serif;">
                     <!-- Content -->
                 </div>
             </div>
@@ -1166,7 +1173,7 @@
                 <button id="btn-close-set" class="xp-btn-close">X</button>
             </div>
             <div class="xp-body">
-                <h2 style="color: black; margin-top: 0; font-size: 32px; text-shadow: none;">SETTINGS</h2>
+                <h2 style="color: #e6edf3; margin-top: 0; font-size: 26px; text-shadow: none; font-family:'Nunito',sans-serif !important; font-weight:900; letter-spacing:-0.01em;">SETTINGS</h2>
                 
                 <div class="settings-row">
                     <label>Music Volume</label>
@@ -1228,7 +1235,7 @@
                 <button id="btn-close-cust" class="xp-btn-close">X</button>
             </div>
             <div class="xp-body" style="align-items: flex-start; padding: 10px;">
-                <h2 style="margin-top:0; color:black; font-size:32px; text-shadow:none; align-self: center;">Customize</h2>
+                <h2 style="margin-top:0; color:#e6edf3; font-size:22px; text-shadow:none; align-self: center; font-family:'Nunito',sans-serif !important; font-weight:900;">Customize</h2>
                 
                 <label style="color:black; font-weight:bold; display:block; text-align:center; width: 100%;">Body Colors</label>
                 <div class="avatar-vis">
@@ -1475,7 +1482,6 @@
     </div>
     <!-- ===== END PUBLISH MODAL ===== -->
 
-<<<<<<< HEAD
     <!-- ===== MARKETPLACE MODAL ===== -->
     <div id="marketplace-modal" class="menu-overlay" style="display:none; position:fixed; inset:0; z-index:500000; background:rgba(0,0,0,0.75); align-items:center; justify-content:center; backdrop-filter:blur(4px);">
         <div class="menu-popup" style="width:720px; max-width:96vw; max-height:90vh; top:50%; left:50%; transform:translate(-50%,-50%) !important; overflow:hidden; display:flex; flex-direction:column; border-color:rgba(245,166,35,0.3) !important;">
@@ -1512,7 +1518,7 @@
                 <button id="btn-close-profile" class="xp-btn-close">X</button>
             </div>
             <div class="xp-body" style="align-items:center; gap:14px;">
-                <canvas id="profile-avatar-canvas" width="100" height="130" style="border:2px solid rgba(0,180,255,0.3); background:#0a0c1e; border-radius:8px; box-shadow:0 0 18px rgba(0,180,255,0.15);"></canvas>
+                <canvas id="profile-avatar-canvas" width="120" height="160" style="border:2px solid rgba(255,255,255,0.1); background:#0d1117; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.5); image-rendering:pixelated;"></canvas>
                 <div id="profile-username" style="font-size:22px; font-weight:bold; color:#00d4ff; text-shadow:0 0 16px rgba(0,212,255,0.3);"></div>
                 <div id="profile-stats" style="display:flex; gap:16px; font-size:13px; color:#8892b0;"></div>
                 <div id="profile-bio" style="font-size:12px; color:#506080; text-align:center; max-width:280px;"></div>
@@ -1523,8 +1529,6 @@
     </div>
     <!-- ===== END PROFILE MODAL ===== -->
 
-=======
->>>>>>> origin/creator-and-explore-games
     <script type="module" src="./src/main.js"></script>
     <script>
         // Helper to update visual color blocks
