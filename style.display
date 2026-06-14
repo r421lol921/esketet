@@ -1,0 +1,6 @@
+// Show Inventory UI only when entering a game
+try {
+    const inv = document.getElementById('inventory-ui');
+    if (inv) inv.style.display = 'block';
+    updateInventoryUI();
+} catch(e){}
