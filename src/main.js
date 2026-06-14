@@ -8,7 +8,11 @@ import { Player, createPlayerMesh } from './Player.js';
 import { RemotePlayer } from './RemotePlayer.js';
 import { InputManager } from './InputManager.js';
 import { boxUnwrapUVs, surfaceManager, createFaceTexture, createTorsoTexture } from './utils.js';
+<<<<<<< HEAD
+import { publishGame, fetchGames, incrementVisit, uploadThumbnail, saveAvatar, loadAvatar, fetchMarketplaceListings, createMarketplaceListing, uploadTshirtImage } from './supabase.js';
+=======
 import { publishGame, fetchGames, incrementVisit, uploadThumbnail } from './supabase.js';
+>>>>>>> origin/creator-and-explore-games
 
 
 
@@ -3538,12 +3542,30 @@ document.getElementById('btn-play').onclick = () => {
                 container.style.gap = '0';
                 container.style.background = isRemote
                     ? 'linear-gradient(135deg,#0d1b2a,#1a2a3a)'
+<<<<<<< HEAD
+                    : 'linear-gradient(135deg,#0e1028,#141830)';
+                container.style.border = isRemote ? '1.5px solid rgba(0,212,255,0.28)' : '1.5px solid rgba(80,100,160,0.22)';
+=======
                     : '#fff';
                 container.style.border = isRemote ? '2px solid #00d4ff44' : '2px solid #ddd';
+>>>>>>> origin/creator-and-explore-games
                 container.style.borderRadius = '10px';
                 container.style.overflow = 'hidden';
                 container.style.boxShadow = isRemote
                     ? '0 4px 20px rgba(0,212,255,0.12)'
+<<<<<<< HEAD
+                    : '0 2px 10px rgba(0,0,0,0.4)';
+                container.style.transition = 'transform 0.15s, box-shadow 0.15s, border-color 0.15s';
+                container.addEventListener('mouseenter', () => {
+                    container.style.transform = 'translateY(-2px)';
+                    container.style.boxShadow = isRemote ? '0 8px 28px rgba(0,212,255,0.22)' : '0 6px 24px rgba(0,100,200,0.22)';
+                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.5)' : 'rgba(0,180,255,0.35)';
+                });
+                container.addEventListener('mouseleave', () => {
+                    container.style.transform = '';
+                    container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 10px rgba(0,0,0,0.4)';
+                    container.style.borderColor = isRemote ? 'rgba(0,212,255,0.28)' : 'rgba(80,100,160,0.22)';
+=======
                     : '0 2px 8px rgba(0,0,0,0.06)';
                 container.style.transition = 'transform 0.15s, box-shadow 0.15s';
                 container.addEventListener('mouseenter', () => {
@@ -3553,6 +3575,7 @@ document.getElementById('btn-play').onclick = () => {
                 container.addEventListener('mouseleave', () => {
                     container.style.transform = '';
                     container.style.boxShadow = isRemote ? '0 4px 20px rgba(0,212,255,0.12)' : '0 2px 8px rgba(0,0,0,0.06)';
+>>>>>>> origin/creator-and-explore-games
                 });
 
                 // Thumbnail
@@ -3591,11 +3614,77 @@ document.getElementById('btn-play').onclick = () => {
                 const title = document.createElement('div');
                 title.style.fontWeight = 'bold';
                 title.style.fontSize = '16px';
+<<<<<<< HEAD
+                title.style.color = isRemote ? '#e8f4fd' : '#d8e0f8';
+=======
                 title.style.color = isRemote ? '#e8f4fd' : '#111';
+>>>>>>> origin/creator-and-explore-games
                 title.style.lineHeight = '1.2';
                 title.textContent = g.name;
                 meta.appendChild(title);
 
+<<<<<<< HEAD
+                // Creator row — prominently displayed with clickable avatar
+                const creatorRow = document.createElement('div');
+                creatorRow.style.cssText = `
+                    display:flex; align-items:center; gap:7px;
+                    font-size:13px; color:${isRemote ? '#00d4ff' : '#5bc8ff'};
+                    font-weight:bold; cursor:pointer;
+                `;
+                creatorRow.title = `View ${g.author || 'Unknown'}'s profile`;
+
+                // Mini avatar icon (uses stored colors or default)
+                const avatarCanvas = document.createElement('canvas');
+                avatarCanvas.width = 28;
+                avatarCanvas.height = 36;
+                avatarCanvas.style.cssText = `
+                    border-radius:3px; border:1.5px solid ${isRemote ? '#00d4ff66' : '#0055aa44'};
+                    background:#ddd; flex-shrink:0; cursor:pointer;
+                `;
+                // Draw mini avatar from stored colors (try localStorage first, fall back to defaults)
+                (() => {
+                    const ctx = avatarCanvas.getContext('2d');
+                    let colors = { head:'#ffffff', torso:'#800080', larm:'#ffffff', rarm:'#ffffff', lleg:'#ffffff', rleg:'#ffffff' };
+                    try {
+                        const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${g.author}`) || 'null');
+                        if (stored) colors = stored;
+                    } catch(e){}
+                    const W = 28, H = 36;
+                    // head
+                    ctx.fillStyle = colors.head;
+                    ctx.fillRect(8,1,12,10);
+                    // torso
+                    ctx.fillStyle = colors.torso;
+                    ctx.fillRect(6,12,16,12);
+                    // arms
+                    ctx.fillStyle = colors.larm;
+                    ctx.fillRect(1,12,5,10);
+                    ctx.fillStyle = colors.rarm;
+                    ctx.fillRect(22,12,5,10);
+                    // legs
+                    ctx.fillStyle = colors.lleg;
+                    ctx.fillRect(6,25,6,10);
+                    ctx.fillStyle = colors.rleg;
+                    ctx.fillRect(16,25,6,10);
+                })();
+
+                creatorRow.appendChild(avatarCanvas);
+                const creatorName = document.createElement('span');
+                creatorName.textContent = g.author || 'Unknown';
+                creatorRow.appendChild(creatorName);
+
+                // Click to open profile modal
+                creatorRow.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openProfileModal(g.author || 'Unknown', g.visits || visits);
+                });
+
+                meta.appendChild(creatorRow);
+
+                // Stats row
+                const visitsNum = visits >= 1000000 ? `${(visits/1000000).toFixed(1)}M` : visits >= 1000 ? `${Math.round(visits/100)/10}K` : `${visits}`;
+                const visitsText = `${visitsNum} visits`;
+=======
                 // Creator row — prominently displayed
                 const creatorRow = document.createElement('div');
                 creatorRow.style.cssText = `
@@ -3611,12 +3700,26 @@ document.getElementById('btn-play').onclick = () => {
 
                 // Stats row
                 const visitsText = visits >= 1000 ? `${Math.round(visits/100)/10}K visits` : `${visits} visits`;
+>>>>>>> origin/creator-and-explore-games
                 const up = stored.up || 0;
                 const down = stored.down || 0;
                 const percent = likePercentage({ up, down }) || 0;
 
                 const stats = document.createElement('div');
                 stats.style.cssText = `
+<<<<<<< HEAD
+                    display:flex; align-items:center; gap:8px;
+                    font-size:12px; color:${isRemote ? '#88aacc' : '#7890b0'};
+                    margin-top:3px; flex-wrap:wrap;
+                `;
+                stats.innerHTML = `
+                    <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                        ${visitsText}
+                    </span>
+                    <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
+=======
                     display:flex; align-items:center; gap:10px;
                     font-size:12px; color:${isRemote ? '#88aacc' : '#666'};
                     margin-top:2px;
@@ -3625,6 +3728,7 @@ document.getElementById('btn-play').onclick = () => {
                     <span>${visitsText}</span>
                     <span style="display:flex;align-items:center;gap:3px;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
+>>>>>>> origin/creator-and-explore-games
                         <strong>${percent}%</strong>
                     </span>
                 `;
@@ -3680,9 +3784,18 @@ document.getElementById('btn-play').onclick = () => {
                     downBtn.textContent = `▼ ${stored.down}`;
                     const p = likePercentage({ up: stored.up, down: stored.down });
                     stats.innerHTML = `
+<<<<<<< HEAD
+                        <span style="display:flex;align-items:center;gap:3px;background:${isRemote ? 'rgba(0,212,255,0.12)' : 'rgba(0,80,200,0.07)'};padding:2px 7px;border-radius:10px;font-weight:bold;">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="${isRemote ? '#00d4ff' : '#0055aa'}"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                            ${visitsText}
+                        </span>
+                        <span style="display:flex;align-items:center;gap:3px;background:rgba(255,80,80,0.08);padding:2px 7px;border-radius:10px;font-weight:bold;">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
+=======
                         <span>${visitsText}</span>
                         <span style="display:flex;align-items:center;gap:3px;">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="#ff6b6b"><path d="M12 21s-7.5-4.6-9.3-7.1C1.1 11.8 3 7.4 6.6 6.3 8.3 5.8 10 6.5 11 7.7c1-1.2 2.7-1.9 4.4-1.4 3.6 1.1 5.5 5.5 3.9 7.6C19.5 16.4 12 21 12 21z"/></svg>
+>>>>>>> origin/creator-and-explore-games
                             <strong>${p}%</strong>
                         </span>
                     `;
@@ -4917,15 +5030,32 @@ document.getElementById('btn-cust-done').onclick = () => {
     try {
         const appearance = player && typeof player.serializeAppearance === 'function' ? player.appearance : null;
         if (appearance) {
-            // Ensure we store the full appearance (colors + any saved texture URLs)
             const saveObj = {
                 colors: appearance.colors || {},
                 faceUrl: appearance.faceUrl || null,
                 shirtUrl: appearance.shirtUrl || null
             };
             localStorage.setItem('nblox_appearance', JSON.stringify(saveObj));
-            // Also reflect saved username state visually if needed
             addChatMessage('System', 'Avatar saved locally.');
+
+            // Also store this user's colors keyed by username for game card avatar previews
+            const currentUsername = (document.getElementById('input-username') || {}).value || 'Guest';
+            try { localStorage.setItem(`nblox_profile_colors_${currentUsername}`, JSON.stringify(appearance.colors || {})); } catch(e){}
+
+            // Save avatar to Supabase in background (non-blocking)
+            (async () => {
+                try {
+                    await saveAvatar({
+                        username: currentUsername,
+                        colors: appearance.colors || {},
+                        hatData: appearance.hat || null,
+                        avatarDataUrl: null
+                    });
+                    addChatMessage('System', 'Avatar synced to cloud.');
+                } catch (e) {
+                    console.warn('[v0] Could not sync avatar to cloud:', e);
+                }
+            })();
         }
     } catch (e) {
         console.warn('Failed to save avatar appearance:', e);
@@ -5930,6 +6060,374 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
     return this;
   };
 }
+
+// ===== PROFILE MODAL =====
+function openProfileModal(username, totalVisits) {
+    const modal = document.getElementById('profile-modal');
+    if (!modal) return;
+
+    document.getElementById('profile-modal-title').textContent = `${username}'s Profile`;
+    document.getElementById('profile-username').textContent = username;
+
+    // Format total visits
+    const vStr = totalVisits >= 1000000
+        ? `${(totalVisits/1000000).toFixed(1)}M total visits`
+        : totalVisits >= 1000
+        ? `${Math.round(totalVisits/100)/10}K total visits`
+        : `${totalVisits || 0} total visits`;
+
+    document.getElementById('profile-stats').innerHTML = `
+        <span style="background:rgba(0,180,255,0.1);padding:4px 12px;border-radius:10px;font-weight:bold;color:#8cceff;border:1px solid rgba(0,180,255,0.2);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#00d4ff" style="vertical-align:middle;margin-right:3px;"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5z"/></svg>
+            ${vStr}
+        </span>
+    `;
+    document.getElementById('profile-bio').textContent = `Creator on Faundry.buzz`;
+
+    // Draw avatar on canvas using stored colors
+    const canvas = document.getElementById('profile-avatar-canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 100, 130);
+        let colors = { head:'#f5cba7', torso:'#800080', larm:'#f5cba7', rarm:'#f5cba7', lleg:'#333', rleg:'#333' };
+        try {
+            const stored = JSON.parse(localStorage.getItem(`nblox_profile_colors_${username}`) || 'null');
+            if (stored) colors = { ...colors, ...stored };
+        } catch(e){}
+        // Draw body parts
+        ctx.fillStyle = colors.head; ctx.fillRect(30, 4, 40, 36);
+        ctx.fillStyle = colors.torso; ctx.fillRect(22, 42, 56, 44);
+        ctx.fillStyle = colors.larm; ctx.fillRect(4, 42, 18, 36);
+        ctx.fillStyle = colors.rarm; ctx.fillRect(78, 42, 18, 36);
+        ctx.fillStyle = colors.lleg; ctx.fillRect(22, 88, 24, 38);
+        ctx.fillStyle = colors.rleg; ctx.fillRect(54, 88, 24, 38);
+        // Eyes
+        ctx.fillStyle = '#000';
+        ctx.fillRect(38, 16, 7, 7);
+        ctx.fillRect(55, 16, 7, 7);
+        // Mouth
+        ctx.fillRect(40, 30, 20, 3);
+    }
+
+    modal.style.display = 'flex';
+    // Try to load from Supabase for cloud-synced avatar (non-blocking)
+    (async () => {
+        try {
+            const profile = await loadAvatar(username);
+            if (profile && profile.colors && canvas) {
+                const ctx = canvas.getContext('2d');
+                const c = profile.colors;
+                ctx.clearRect(0, 0, 100, 130);
+                ctx.fillStyle = c.head || '#f5cba7'; ctx.fillRect(30, 4, 40, 36);
+                ctx.fillStyle = c.torso || '#800080'; ctx.fillRect(22, 42, 56, 44);
+                ctx.fillStyle = c.larm || '#f5cba7'; ctx.fillRect(4, 42, 18, 36);
+                ctx.fillStyle = c.rarm || '#f5cba7'; ctx.fillRect(78, 42, 18, 36);
+                ctx.fillStyle = c.lleg || '#333'; ctx.fillRect(22, 88, 24, 38);
+                ctx.fillStyle = c.rleg || '#333'; ctx.fillRect(54, 88, 24, 38);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(38, 16, 7, 7);
+                ctx.fillRect(55, 16, 7, 7);
+                ctx.fillRect(40, 30, 20, 3);
+            }
+        } catch (e) {}
+    })();
+}
+
+document.getElementById('btn-close-profile').onclick = () => {
+    const modal = document.getElementById('profile-modal');
+    if (modal) modal.style.display = 'none';
+};
+document.getElementById('btn-close-profile-ok').onclick = () => {
+    const modal = document.getElementById('profile-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+// ===== MARKETPLACE =====
+let _marketplaceListingsCache = null;
+let _myPoints = 0;
+
+function getMyPoints() {
+    try { _myPoints = parseInt(localStorage.getItem('nblox_points') || '0', 10); } catch(e){ _myPoints = 0; }
+    return _myPoints;
+}
+function addPoints(amt) {
+    _myPoints = getMyPoints() + amt;
+    try { localStorage.setItem('nblox_points', String(_myPoints)); } catch(e){}
+    const el = document.getElementById('points-display');
+    if (el) el.textContent = _myPoints;
+}
+function spendPoints(amt) {
+    if (getMyPoints() < amt) return false;
+    _myPoints -= amt;
+    try { localStorage.setItem('nblox_points', String(_myPoints)); } catch(e){}
+    const el = document.getElementById('points-display');
+    if (el) el.textContent = _myPoints;
+    return true;
+}
+
+// Sync points display on load
+(function syncPointsDisplay() {
+    const el = document.getElementById('points-display');
+    if (el) el.textContent = getMyPoints();
+})();
+
+function openMarketplace() {
+    const modal = document.getElementById('marketplace-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    // Update points shown
+    const pts = getMyPoints();
+    showMarketplaceBrowse(pts);
+}
+
+function showMarketplaceBrowse(pts) {
+    const content = document.getElementById('mkt-content');
+    if (!content) return;
+    content.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:18px;font-weight:bold;color:#f5a623;letter-spacing:0.04em;">T-Shirts for Sale</div>
+        <div style="background:rgba(245,166,35,0.1);padding:6px 16px;border-radius:12px;font-weight:bold;color:#d8e0f8;border:1px solid rgba(245,166,35,0.3);display:flex;align-items:center;gap:6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#f5a623"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>
+            Points: <span id="mkt-pts-display" style="color:#f5a623;font-size:16px;">${pts}</span>
+        </div>
+    </div>
+    <div id="mkt-listings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;"></div>
+    <div id="mkt-loading" style="text-align:center;color:#506080;padding:24px;font-size:14px;">Loading listings...</div>`;
+
+    // Load listings
+    (async () => {
+        try {
+            const listings = await fetchMarketplaceListings();
+            _marketplaceListingsCache = listings;
+            const grid = document.getElementById('mkt-listings-grid');
+            const loading = document.getElementById('mkt-loading');
+            if (loading) loading.style.display = 'none';
+            if (!grid) return;
+            if (!listings.length) {
+                grid.innerHTML = `<div style="color:#888;font-style:italic;grid-column:1/-1;text-align:center;padding:20px;">No listings yet! Be the first to sell a T-shirt.</div>`;
+                return;
+            }
+            listings.forEach(item => {
+                const card = document.createElement('div');
+                card.style.cssText = `border:1.5px solid rgba(245,166,35,0.28);border-radius:10px;overflow:hidden;background:rgba(20,15,3,0.95);box-shadow:0 4px 16px rgba(0,0,0,0.5);display:flex;flex-direction:column;transition:border-color 0.15s,box-shadow 0.15s;`;
+                card.addEventListener('mouseenter', () => { card.style.borderColor = 'rgba(245,166,35,0.55)'; card.style.boxShadow = '0 6px 24px rgba(245,166,35,0.15)'; });
+                card.addEventListener('mouseleave', () => { card.style.borderColor = 'rgba(245,166,35,0.28)'; card.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)'; });
+                const imgEl = document.createElement('img');
+                imgEl.src = item.image_url || '/DefaultThumb.png';
+                imgEl.alt = item.name;
+                imgEl.style.cssText = `width:100%;height:120px;object-fit:cover;`;
+                imgEl.onerror = () => { imgEl.src = '/DefaultThumb.png'; };
+                card.appendChild(imgEl);
+                const info = document.createElement('div');
+                info.style.cssText = `padding:8px;flex:1;display:flex;flex-direction:column;gap:4px;`;
+                info.innerHTML = `
+                    <div style="font-weight:bold;font-size:13px;color:#d8e0f8;">${item.name}</div>
+                    <div style="font-size:11px;color:#5bc8ff;">By ${item.seller || 'Unknown'}</div>
+                    <div style="font-size:11px;color:#7890b0;">${item.description || ''}</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:6px;">
+                        <span style="font-weight:bold;color:#f5a623;font-size:14px;">${item.price} pts</span>
+                        <span style="font-size:10px;color:#506080;">${item.sales || 0} sold</span>
+                    </div>
+                `;
+                const buyBtn = document.createElement('button');
+                buyBtn.className = 'menu-btn';
+                buyBtn.textContent = 'Buy';
+                buyBtn.style.cssText = `margin:0 8px 8px 8px;background:rgba(245,166,35,0.12) !important;border-color:rgba(245,166,35,0.4) !important;color:#f5a623 !important;font-weight:bold;border-radius:6px;`;
+                buyBtn.addEventListener('click', () => {
+                    const currentPts = getMyPoints();
+                    if (currentPts < item.price) {
+                        alert(`Not enough points! You have ${currentPts} points but need ${item.price}.`);
+                        return;
+                    }
+                    if (confirm(`Buy "${item.name}" for ${item.price} points?`)) {
+                        spendPoints(item.price);
+                        const ptsEl = document.getElementById('mkt-pts-display');
+                        if (ptsEl) ptsEl.textContent = getMyPoints();
+                        const globalPtsEl = document.getElementById('points-display');
+                        if (globalPtsEl) globalPtsEl.textContent = getMyPoints();
+                        // Save purchased item locally
+                        try {
+                            const owned = JSON.parse(localStorage.getItem('nblox_owned_tshirts') || '[]');
+                            owned.push({ id: item.id, name: item.name, image_url: item.image_url, boughtAt: Date.now() });
+                            localStorage.setItem('nblox_owned_tshirts', JSON.stringify(owned));
+                        } catch(e){}
+                        alert(`You bought "${item.name}"! It has been added to your inventory.`);
+                        buyBtn.textContent = 'Owned';
+                        buyBtn.disabled = true;
+                        buyBtn.style.opacity = '0.5';
+                    }
+                });
+                // Mark as owned if already purchased
+                try {
+                    const owned = JSON.parse(localStorage.getItem('nblox_owned_tshirts') || '[]');
+                    if (owned.some(o => o.id === item.id)) {
+                        buyBtn.textContent = 'Owned';
+                        buyBtn.disabled = true;
+                        buyBtn.style.opacity = '0.5';
+                    }
+                } catch(e){}
+                card.appendChild(info);
+                card.appendChild(buyBtn);
+                grid.appendChild(card);
+            });
+        } catch (e) {
+            const loading = document.getElementById('mkt-loading');
+            if (loading) loading.textContent = 'Failed to load listings.';
+        }
+    })();
+}
+
+function showMarketplaceSell() {
+    const content = document.getElementById('mkt-content');
+    if (!content) return;
+    const currentUsername = (document.getElementById('input-username') || {}).value || 'Guest';
+    content.innerHTML = `
+        <div style="font-size:18px;font-weight:bold;color:#f5a623;margin-bottom:16px;letter-spacing:0.04em;">List a T-Shirt for Sale</div>
+        <div style="display:flex;flex-direction:column;gap:13px;max-width:420px;">
+            <div>
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">Item Name</label>
+                <input id="mkt-sell-name" type="text" maxlength="40" placeholder="e.g. Cool Blue Tee" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid rgba(245,166,35,0.3);border-radius:7px;font-size:14px;background:rgba(20,14,2,0.8);color:#d8e0f8;">
+            </div>
+            <div>
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">Description</label>
+                <input id="mkt-sell-desc" type="text" maxlength="100" placeholder="Short description..." style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid rgba(245,166,35,0.3);border-radius:7px;font-size:14px;background:rgba(20,14,2,0.8);color:#d8e0f8;">
+            </div>
+            <div>
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">Price (Points)</label>
+                <input id="mkt-sell-price" type="number" min="1" max="9999" value="50" style="width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid rgba(245,166,35,0.3);border-radius:7px;font-size:14px;background:rgba(20,14,2,0.8);color:#d8e0f8;">
+            </div>
+            <div>
+                <label style="font-weight:bold;font-size:13px;display:block;margin-bottom:5px;color:#d8e0f8;">T-Shirt Image</label>
+                <div id="mkt-img-preview" style="width:120px;height:120px;border:2px dashed rgba(245,166,35,0.35);border-radius:8px;background:rgba(20,14,2,0.6);display:flex;align-items:center;justify-content:center;color:#7a6030;font-size:12px;margin-bottom:8px;">No image</div>
+                <input id="mkt-sell-image" type="file" accept="image/*" style="font-size:13px;color:#7890b0;">
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <div style="font-size:13px;color:#7890b0;">Listing as: <strong style="color:#d8e0f8;">${currentUsername}</strong></div>
+            </div>
+            <div id="mkt-sell-status" style="display:none;padding:9px;border-radius:7px;font-weight:bold;font-size:13px;"></div>
+            <button id="mkt-btn-submit" class="menu-btn" style="background:rgba(245,166,35,0.14) !important;border-color:rgba(245,166,35,0.45) !important;color:#f5a623 !important;font-weight:bold;padding:11px;font-size:15px;box-shadow:0 0 14px rgba(245,166,35,0.18) !important;">List Item (+15 pts reward)</button>
+        </div>
+    `;
+
+    // Image preview
+    document.getElementById('mkt-sell-image').addEventListener('change', (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const preview = document.getElementById('mkt-img-preview');
+            if (preview) {
+                preview.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`;
+            }
+        };
+        reader.readAsDataURL(f);
+    });
+
+    // Submit listing
+    document.getElementById('mkt-btn-submit').addEventListener('click', async () => {
+        const name = (document.getElementById('mkt-sell-name').value || '').trim();
+        const desc = (document.getElementById('mkt-sell-desc').value || '').trim();
+        const priceRaw = parseInt(document.getElementById('mkt-sell-price').value || '50', 10);
+        const imageFile = document.getElementById('mkt-sell-image').files && document.getElementById('mkt-sell-image').files[0];
+        const status = document.getElementById('mkt-sell-status');
+
+        if (!name) { alert('Please enter an item name.'); return; }
+        if (priceRaw < 1 || priceRaw > 9999) { alert('Price must be between 1 and 9999 points.'); return; }
+
+        const btn = document.getElementById('mkt-btn-submit');
+        btn.disabled = true;
+        btn.textContent = 'Publishing...';
+        if (status) { status.style.display = 'block'; status.style.background = 'rgba(0,100,200,0.1)'; status.style.color = '#0055aa'; status.textContent = 'Uploading...'; }
+
+        try {
+            let imageUrl = '';
+            if (imageFile) {
+                imageUrl = await uploadTshirtImage(imageFile, currentUsername) || '';
+            }
+            await createMarketplaceListing({
+                seller: currentUsername,
+                name,
+                description: desc,
+                price: priceRaw,
+                image_url: imageUrl
+            });
+            // Award seller points for listing (15 pts reward)
+            addPoints(15);
+            if (status) { status.style.background = 'rgba(0,180,80,0.12)'; status.style.color = '#006600'; status.textContent = 'Listed! You earned 15 points for creating a listing.'; }
+            btn.textContent = 'Listed!';
+            // Invalidate cache
+            _marketplaceListingsCache = null;
+        } catch (e) {
+            if (status) { status.style.background = 'rgba(200,0,0,0.1)'; status.style.color = '#990000'; status.textContent = 'Failed to publish: ' + (e.message || String(e)); }
+            btn.disabled = false;
+            btn.textContent = 'List Item';
+        }
+    });
+}
+
+function showMarketplaceMine() {
+    const content = document.getElementById('mkt-content');
+    if (!content) return;
+    const currentUsername = (document.getElementById('input-username') || {}).value || 'Guest';
+    let owned = [];
+    try { owned = JSON.parse(localStorage.getItem('nblox_owned_tshirts') || '[]'); } catch(e){}
+    content.innerHTML = `<div style="font-size:18px;font-weight:bold;color:#f5a623;margin-bottom:14px;letter-spacing:0.04em;">My Inventory</div>`;
+    if (!owned.length) {
+        content.innerHTML += `<div style="color:#506080;font-style:italic;">You haven't purchased any T-shirts yet. Browse the marketplace!</div>`;
+        return;
+    }
+    const grid = document.createElement('div');
+    grid.style.cssText = `display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;`;
+    owned.forEach(item => {
+        const card = document.createElement('div');
+        card.style.cssText = `border:1.5px solid rgba(245,166,35,0.28);border-radius:10px;overflow:hidden;background:rgba(20,15,3,0.95);box-shadow:0 4px 16px rgba(0,0,0,0.5);`;
+        card.innerHTML = `
+            <img src="${item.image_url || '/DefaultThumb.png'}" alt="${item.name}" style="width:100%;height:110px;object-fit:cover;" onerror="this.src='/DefaultThumb.png'">
+            <div style="padding:9px;">
+                <div style="font-weight:bold;font-size:13px;color:#d8e0f8;">${item.name}</div>
+                <div style="font-size:10px;color:#5bc8ff;margin-top:3px;letter-spacing:0.05em;">OWNED</div>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+    content.appendChild(grid);
+}
+
+// Wire marketplace tabs
+setTimeout(() => {
+    const mktBrowse = document.getElementById('mkt-tab-browse');
+    const mktSell = document.getElementById('mkt-tab-sell');
+    const mktMine = document.getElementById('mkt-tab-mine');
+    const mktClose = document.getElementById('btn-close-marketplace');
+
+    if (mktBrowse) mktBrowse.addEventListener('click', () => {
+        [mktBrowse, mktSell, mktMine].forEach(b => { if(b) { b.style.background = 'rgba(255,255,255,0.5)'; b.style.fontWeight = 'normal'; } });
+        mktBrowse.style.background = 'linear-gradient(to bottom,#fff,#ffeaa0)';
+        mktBrowse.style.fontWeight = 'bold';
+        showMarketplaceBrowse(getMyPoints());
+    });
+    if (mktSell) mktSell.addEventListener('click', () => {
+        [mktBrowse, mktSell, mktMine].forEach(b => { if(b) { b.style.background = 'rgba(255,255,255,0.5)'; b.style.fontWeight = 'normal'; } });
+        mktSell.style.background = 'linear-gradient(to bottom,#fff,#ffeaa0)';
+        mktSell.style.fontWeight = 'bold';
+        showMarketplaceSell();
+    });
+    if (mktMine) mktMine.addEventListener('click', () => {
+        [mktBrowse, mktSell, mktMine].forEach(b => { if(b) { b.style.background = 'rgba(255,255,255,0.5)'; b.style.fontWeight = 'normal'; } });
+        mktMine.style.background = 'linear-gradient(to bottom,#fff,#ffeaa0)';
+        mktMine.style.fontWeight = 'bold';
+        showMarketplaceMine();
+    });
+    if (mktClose) mktClose.addEventListener('click', () => {
+        const modal = document.getElementById('marketplace-modal');
+        if (modal) modal.style.display = 'none';
+    });
+
+    const mktBtn = document.getElementById('btn-marketplace');
+    if (mktBtn) mktBtn.addEventListener('click', () => {
+        playSwitch();
+        openMarketplace();
+    });
+}, 200);
 
 // Chat Logic
 function addChatMessage(name, text) {
